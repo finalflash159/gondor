@@ -33,25 +33,28 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/60"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
       />
+
+      {/* Modal Content */}
       <div
         className={cn(
-          'relative z-50 w-full max-w-md rounded-lg border bg-[var(--card)] p-4 shadow-xl',
+          'relative z-50 w-full max-w-md rounded-xl border border-border bg-card p-5 shadow-2xl',
+          'animate-scaleIn',
           className
         )}
-        style={{ borderColor: 'var(--border)' }}
       >
         {title && (
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>{title}</h2>
+          <div className="mb-4 flex items-center justify-between border-b border-border pb-3">
+            <h2 className="text-base font-bold text-foreground">{title}</h2>
             <button
               onClick={onClose}
-              className="rounded p-1 transition-colors hover:bg-[var(--accent)]"
+              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
-              <X className="h-4 w-4" style={{ color: 'var(--muted-foreground)' }} />
+              <X className="h-4 w-4" />
             </button>
           </div>
         )}

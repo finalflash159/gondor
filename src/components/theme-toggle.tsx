@@ -1,22 +1,22 @@
 'use client';
 
-import Image from 'next/image';
 import { useTheme } from './theme-provider';
+import { Sun, Moon } from 'lucide-react';
 
 export function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
 
   return (
-    <div
+    <button
       onClick={toggleTheme}
-      className="cursor-pointer"
+      className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-transparent text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
       title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
     >
       {theme === 'dark' ? (
-        <Image src="/icons/sun.svg" alt="Sun" width={18} height={18} className="text-yellow-400" />
+        <Sun className="h-4 w-4 text-gold" />
       ) : (
-        <Image src="/icons/moon.svg" alt="Moon" width={18} height={18} className="text-slate-600" />
+        <Moon className="h-4 w-4" />
       )}
-    </div>
+    </button>
   );
 }

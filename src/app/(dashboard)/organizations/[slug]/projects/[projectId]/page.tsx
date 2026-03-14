@@ -9,6 +9,22 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Modal } from '@/components/ui/modal';
+import { Badge } from '@/components/ui/badge';
+import {
+  Eye,
+  EyeOff,
+  Copy,
+  Check,
+  Pencil,
+  Trash2,
+  Settings,
+  Plus,
+  ArrowLeft,
+  Key,
+  Clock,
+  User,
+  ChevronRight,
+} from 'lucide-react';
 
 interface Environment {
   id: string;
@@ -35,6 +51,13 @@ interface Secret {
   environment: Environment;
 }
 
+interface AuditEntry {
+  id: string;
+  action: string;
+  user: string;
+  timestamp: string;
+}
+
 export default function ProjectSecretsPage() {
   const params = useParams();
   const projectId = params.projectId as string;
@@ -49,6 +72,7 @@ export default function ProjectSecretsPage() {
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [editingSecret, setEditingSecret] = useState<Secret | null>(null);
+  const [selectedSecret, setSelectedSecret] = useState<Secret | null>(null);
   const [visibleSecrets, setVisibleSecrets] = useState<Set<string>>(new Set());
   const [copiedSecret, setCopiedSecret] = useState<string | null>(null);
   const [showValue, setShowValue] = useState(false);
@@ -175,7 +199,12 @@ export default function ProjectSecretsPage() {
     if (!confirm('Delete this secret?')) return;
     try {
       const res = await fetch(`/api/secrets/${secretId}`, { method: 'DELETE' });
-      if (res.ok) fetchSecrets();
+      if (res.ok) {
+        fetchSecrets();
+        if (selectedSecret?.id === secretId) {
+          setSelectedSecret(null);
+        }
+      }
     } catch (err) {
       console.error('Failed to delete:', err);
     }
@@ -232,159 +261,409 @@ export default function ProjectSecretsPage() {
 
   const getEnvDot = (envSlug: string) => {
     const s = envSlug.toLowerCase();
-    if (s === 'prod' || s === 'production') return 'bg-[var(--color-prod)]';
-    if (s === 'staging') return 'bg-[var(--color-staging)]';
-    return 'bg-[var(--color-dev)]';
+    if (s === 'prod' || s === 'production') return 'bg-prod';
+    if (s === 'staging') return 'bg-staging';
+    if (s === 'dev' || s === 'development') return 'bg-dev';
+    return 'bg-test';
+  };
+
+  const getEnvBadgeVariant = (envSlug: string) => {
+    const s = envSlug.toLowerCase();
+    if (s === 'prod' || s === 'production') return 'env-prod';
+    if (s === 'staging') return 'env-staging';
+    if (s === 'dev' || s === 'development') return 'env-dev';
+    return 'env-test';
   };
 
   const filteredSecrets = secrets.filter(s => s.envId === activeEnv && s.key.toLowerCase().includes(searchQuery.toLowerCase()));
   const activeEnvData = environments.find(e => e.id === activeEnv);
 
+  // Mock audit data for selected secret
+  const mockAuditEntries: AuditEntry[] = [
+    { id: '1', action: 'updated value', user: 'Thinh Vo', timestamp: '2 minutes ago' },
+    { id: '2', action: 'read secret (machine)', user: 'gondor-cli', timestamp: '14 minutes ago' },
+    { id: '3', action: 'created secret', user: 'Thinh Vo', timestamp: 'Jan 12, 2026' },
+  ];
+
   if (loading) {
     return (
       <div>
-        <div className="h-7 w-28 bg-[var(--color-surface)] rounded animate-pulse mb-3" />
-        <div className="h-56 bg-[var(--color-card)] rounded-lg border border-[var(--color-border)] animate-pulse" />
+        <div className="h-7 w-28 bg-muted rounded animate-pulse mb-4" />
+        <div className="h-56 bg-card rounded-lg border border-border animate-pulse" />
       </div>
     );
   }
 
   return (
-    <div>
-      {/* Header */}
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Link href={`/organizations/${slug}`} className="p-1 hover:bg-[var(--color-accent)] rounded-md transition-colors">
-            <Image src="/icons/arrow-left.svg" alt="Back" width={14} height={14} className="text-[var(--color-muted-foreground)]" />
-          </Link>
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--color-surface)]">
-              <Image src="/icons/lock.svg" alt="Lock" width={14} height={14} className="text-[var(--color-muted-foreground)]" />
-            </div>
-            <div>
-              <h1 className="text-base font-semibold text-[var(--color-foreground)]">Secrets</h1>
-              <p className="text-xs text-[var(--color-muted-foreground)]">{activeEnvData?.name}</p>
+    <div className="flex">
+      {/* Main Content */}
+      <div className="flex-1">
+        {/* Header */}
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link href={`/organizations/${slug}`} className="p-1.5 hover:bg-muted rounded-md transition-colors">
+              <ArrowLeft className="h-4 w-4 text-muted-foreground" />
+            </Link>
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+                <Key className="h-4 w-4 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-base font-bold text-foreground">Secrets</h1>
+                <p className="text-xs text-muted-foreground">{activeEnvData?.name}</p>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Button variant="ghost" size="sm" onClick={() => setShowSettingsModal(true)}>
-            <Image src="/icons/settings.svg" alt="Settings" width={14} height={14} />
-          </Button>
-          <Button size="sm" onClick={() => { setEditingSecret(null); setSecretKey(''); setSecretValue(''); setShowSecretModal(true); }}>
-            <Image src="/icons/plus.svg" alt="Plus" width={14} height={14} className="mr-1" />
-            Add
-          </Button>
-        </div>
-      </div>
-
-      {/* Environment Tabs */}
-      <div className="flex items-center gap-1 mb-3 p-1 bg-[var(--color-card)] rounded-lg border border-[var(--color-border)] w-fit">
-        {environments.map((env) => (
-          <button
-            key={env.id}
-            onClick={() => setActiveEnv(env.id)}
-            className={`px-2.5 py-1 text-xs rounded-md transition-all flex items-center gap-1 ${
-              activeEnv === env.id
-                ? 'bg-[var(--color-primary)] text-[var(--color-surface)]'
-                : 'text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
-            }`}
-          >
-            <span className={`w-1.5 h-1.5 rounded-full ${activeEnv === env.id ? 'bg-[var(--color-surface)]' : getEnvDot(env.slug)}`} />
-            {env.name}
-          </button>
-        ))}
-      </div>
-
-      {/* Search */}
-      <div className="relative mb-3">
-        <Image src="/icons/search.svg" alt="Search" width={14} height={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-muted-foreground)]" />
-        <input
-          type="text"
-          placeholder="Search secrets..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full h-8 rounded-md border border-[var(--color-border)] bg-[var(--color-card)] pl-8 pr-3 text-xs text-[var(--color-foreground)] placeholder:text-[var(--color-muted-foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--color-ring)]"
-        />
-      </div>
-
-      {/* Secrets List */}
-      {filteredSecrets.length === 0 ? (
-        <Card className="border-dashed border-2 border-[var(--color-border)] bg-[var(--color-card)]/50">
-          <CardContent className="flex flex-col items-center justify-center py-10">
-            <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-md bg-[var(--color-surface)]">
-              <Image src="/icons/key.svg" alt="Key" width={16} height={16} className="text-[var(--color-muted-foreground)]" />
-            </div>
-            <h3 className="text-xs font-medium text-[var(--color-foreground)]">No secrets</h3>
-            <p className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">Add your first secret</p>
-            <Button size="sm" className="mt-3" onClick={() => { setEditingSecret(null); setShowSecretModal(true); }}>
-              <Image src="/icons/plus.svg" alt="Plus" width={14} height={14} className="mr-1" />
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setShowSettingsModal(true)}>
+              <Settings className="h-4 w-4 mr-1" />
+              Settings
+            </Button>
+            <Button size="sm" onClick={() => { setEditingSecret(null); setSecretKey(''); setSecretValue(''); setShowSecretModal(true); }}>
+              <Plus className="h-4 w-4 mr-1" />
               Add Secret
             </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="border-[var(--color-border)] bg-[var(--color-card)]">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-[var(--color-border)]">
-                  <th className="px-3 py-2 text-left text-xs font-medium text-[var(--color-muted-foreground)]">Key</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-[var(--color-muted-foreground)]">Value</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-[var(--color-muted-foreground)] w-12">Ver</th>
-                  <th className="px-3 py-2 text-right text-xs font-medium text-[var(--color-muted-foreground)] w-16">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--color-border)]">
-                {filteredSecrets.map((secret) => (
-                  <tr key={secret.id} className="hover:bg-[var(--color-accent)]/50 transition-colors group">
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-1.5">
-                        <Image src="/icons/key.svg" alt="Key" width={14} height={14} className="text-[var(--color-muted-foreground)]" />
-                        <span className="font-mono text-xs text-[var(--color-foreground)]">{secret.key}</span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-mono text-xs text-[var(--color-muted-foreground)] max-w-xs truncate">
-                          {visibleSecrets.has(secret.id) ? secret.value : '••••••••••••'}
-                        </span>
-                        <button onClick={() => toggleSecretVisibility(secret.id)} className="p-1 rounded hover:bg-[var(--color-accent)] opacity-0 group-hover:opacity-100 transition-opacity">
-                          {visibleSecrets.has(secret.id) ? <Image src="/icons/eye-off.svg" alt="Hide" width={12} height={12} /> : <Image src="/icons/eye.svg" alt="Show" width={12} height={12} />}
-                        </button>
-                        <button onClick={() => copyToClipboard(secret)} className="p-1 rounded hover:bg-[var(--color-accent)] opacity-0 group-hover:opacity-100 transition-opacity">
-                          {copiedSecret === secret.id ? <Image src="/icons/check.svg" alt="Check" width={12} height={12} className="text-[var(--color-success)]" /> : <Image src="/icons/copy.svg" alt="Copy" width={12} height={12} />}
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2">
-                      <span className="text-[10px] text-[var(--color-muted-foreground)]">v{secret.version}</span>
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => openEditModal(secret)} className="p-1 rounded hover:bg-[var(--color-accent)]">
-                          <Image src="/icons/edit.svg" alt="Edit" width={12} height={12} />
-                        </button>
-                        <button onClick={() => handleDeleteSecret(secret.id)} className="p-1 rounded hover:bg-[var(--color-danger)]/10">
-                          <Image src="/icons/trash.svg" alt="Delete" width={12} height={12} className="text-[var(--color-danger)]" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
-        </Card>
+        </div>
+
+        {/* Environment Tabs */}
+        <div className="flex items-center gap-1 mb-4 p-1 bg-card rounded-lg border border-border w-fit">
+          {environments.map((env) => (
+            <button
+              key={env.id}
+              onClick={() => setActiveEnv(env.id)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1.5 ${
+                activeEnv === env.id
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${activeEnv === env.id ? 'bg-primary-foreground' : getEnvDot(env.slug)}`} />
+              {env.name}
+            </button>
+          ))}
+        </div>
+
+        {/* Search & Filter Bar */}
+        <div className="flex items-center gap-2 mb-4">
+          <div className="relative flex-1 max-w-[320px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search secrets..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-8 rounded-lg border border-border bg-card pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-ring focus:ring-1 focus:ring-ring"
+            />
+          </div>
+          <Button variant="outline" size="sm">
+            <svg className="h-4 w-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
+            </svg>
+            Filter
+          </Button>
+          <Button variant="outline" size="sm">
+            <svg className="h-4 w-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+            </svg>
+            Sort
+          </Button>
+          <div className="ml-auto">
+            <Button variant="ghost" size="sm">
+              <Eye className="h-4 w-4 mr-1" />
+              Reveal All
+            </Button>
+          </div>
+        </div>
+
+        {/* Stats Row */}
+        <div className="grid grid-cols-4 gap-3 mb-4">
+          <div className="rounded-lg border border-border bg-card p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Total Secrets</p>
+            <p className="text-xl font-extrabold text-foreground mt-0.5">{filteredSecrets.length}</p>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Last Synced</p>
+            <p className="text-sm font-bold text-foreground mt-0.5 pt-1">2m ago</p>
+            <p className="text-[10px] text-success mt-0.5">All healthy</p>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Expiring Soon</p>
+            <p className="text-xl font-extrabold text-danger mt-0.5">2</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Rotation needed</p>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-3">
+            <p className="text-[11px] font-medium text-muted-foreground">Active Integrations</p>
+            <p className="text-xl font-extrabold text-foreground mt-0.5">5</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">GitHub, K8s +3</p>
+          </div>
+        </div>
+
+        {/* Secrets Table */}
+        {filteredSecrets.length === 0 ? (
+          <Card className="border-dashed border-2 border-border bg-card/50">
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                <Key className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <h3 className="text-sm font-semibold text-foreground">No secrets</h3>
+              <p className="mt-1 text-xs text-muted-foreground">Add your first secret</p>
+              <Button size="sm" className="mt-4" onClick={() => { setEditingSecret(null); setShowSecretModal(true); }}>
+                <Plus className="h-4 w-4 mr-1" />
+                Add Secret
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-border bg-card overflow-hidden">
+            {/* Table Header */}
+            <div className="grid grid-cols-[28px_2fr_2fr_1fr_1fr_80px] items-center px-4 h-9 border-b border-border bg-muted/50">
+              <div></div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1 cursor-pointer hover:text-foreground">
+                Key
+              </div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Value</div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Environment</div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1 cursor-pointer hover:text-foreground">
+                Updated
+              </div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-right">Actions</div>
+            </div>
+
+            {/* Table Body */}
+            <div className="divide-y divide-border">
+              {filteredSecrets.map((secret) => (
+                <div
+                  key={secret.id}
+                  className={`grid grid-cols-[28px_2fr_2fr_1fr_1fr_80px] items-center px-4 h-11 cursor-pointer transition-colors hover:bg-muted/50 ${
+                    selectedSecret?.id === secret.id ? 'bg-gold/5 border-l-2 border-l-gold' : ''
+                  }`}
+                  onClick={() => setSelectedSecret(secret)}
+                >
+                  {/* Checkbox */}
+                  <div className={`w-4 h-4 rounded border ${selectedSecret?.id === secret.id ? 'bg-primary border-primary' : 'border-border'}`}>
+                    {selectedSecret?.id === secret.id && (
+                      <Check className="h-3 w-3 text-primary-foreground" />
+                    )}
+                  </div>
+
+                  {/* Key */}
+                  <div className="flex items-center gap-2 font-mono-secret text-foreground">
+                    <Key className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="truncate">{secret.key}</span>
+                  </div>
+
+                  {/* Value */}
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono-secret text-muted-foreground truncate">
+                      {visibleSecrets.has(secret.id) ? secret.value : '••••••••••••••••••••'}
+                    </span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); toggleSecretVisibility(secret.id); }}
+                      className="p-1 rounded hover:bg-muted shrink-0"
+                    >
+                      {visibleSecrets.has(secret.id) ? (
+                        <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                      ) : (
+                        <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                      )}
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); copyToClipboard(secret); }}
+                      className="p-1 rounded hover:bg-muted shrink-0"
+                    >
+                      {copiedSecret === secret.id ? (
+                        <Check className="h-3.5 w-3.5 text-success" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Environment */}
+                  <div>
+                    <Badge variant={getEnvBadgeVariant(secret.environment?.slug || 'prod')}>
+                      {secret.environment?.name || 'prod'}
+                    </Badge>
+                  </div>
+
+                  {/* Updated */}
+                  <div className="text-xs text-muted-foreground">
+                    {new Date(secret.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openEditModal(secret); }}
+                      className="p-1.5 rounded hover:bg-muted"
+                    >
+                      <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteSecret(secret.id); }}
+                      className="p-1.5 rounded hover:bg-danger/10"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-danger" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Add Row */}
+            <div
+              className="flex items-center gap-2 px-4 py-2.5 border-t border-dashed border-border cursor-pointer hover:bg-muted/50 transition-colors"
+              onClick={() => { setEditingSecret(null); setSecretKey(''); setSecretValue(''); setShowSecretModal(true); }}
+            >
+              <div className="w-5 h-5 rounded border border-dashed border-border flex items-center justify-center text-muted-foreground">
+                <Plus className="h-3 w-3" />
+              </div>
+              <span className="text-xs text-muted-foreground">Add new secret...</span>
+            </div>
+          </Card>
+        )}
+      </div>
+
+      {/* Right Panel - Secret Detail */}
+      {selectedSecret && (
+        <div className="w-[300px] border-l border-border bg-card flex flex-col h-[calc(100vh-52px)] sticky top-[52px] animate-slideInRight">
+          {/* Panel Header */}
+          <div className="flex items-center justify-between p-4 border-b border-border">
+            <span className="text-sm font-bold text-foreground font-mono-secret">{selectedSecret.key}</span>
+            <button
+              onClick={() => setSelectedSecret(null)}
+              className="p-1 rounded hover:bg-muted text-muted-foreground"
+            >
+              <span className="text-lg leading-none">&times;</span>
+            </button>
+          </div>
+
+          {/* Panel Body */}
+          <div className="flex-1 overflow-y-auto p-4">
+            {/* Value Section */}
+            <div className="mb-5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Value</p>
+              <div className="rounded-lg border border-border bg-muted/50 p-3 mb-2">
+                <p className="font-mono-secret text-sm text-foreground break-all">
+                  {showValue ? selectedSecret.value : '••••••••••••••••••••'}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-center"
+                onClick={() => setShowValue(!showValue)}
+              >
+                {showValue ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
+                {showValue ? 'Hide value' : 'Reveal value'}
+              </Button>
+            </div>
+
+            {/* Metadata Section */}
+            <div className="mb-5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Metadata</p>
+              <div className="space-y-0">
+                <div className="flex justify-between py-2 border-b border-border">
+                  <span className="text-xs text-muted-foreground">Environment</span>
+                  <Badge variant={getEnvBadgeVariant(selectedSecret.environment?.slug || 'prod')}>
+                    {selectedSecret.environment?.name || 'prod'}
+                  </Badge>
+                </div>
+                <div className="flex justify-between py-2 border-b border-border">
+                  <span className="text-xs text-muted-foreground">Path</span>
+                  <span className="text-xs font-mono-secret text-foreground">/</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-border">
+                  <span className="text-xs text-muted-foreground">Version</span>
+                  <span className="text-xs font-semibold text-foreground">v{selectedSecret.version}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-border">
+                  <span className="text-xs text-muted-foreground">Created</span>
+                  <span className="text-xs text-foreground">
+                    {new Date(selectedSecret.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-border">
+                  <span className="text-xs text-muted-foreground">Updated</span>
+                  <span className="text-xs text-foreground">
+                    {new Date(selectedSecret.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                </div>
+                <div className="flex justify-between py-2">
+                  <span className="text-xs text-muted-foreground">Updated by</span>
+                  <span className="text-xs text-foreground">Thinh Vo</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Comment Section */}
+            <div className="mb-5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Comment</p>
+              <div className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 leading-relaxed">
+                Production database password. Rotates every 30 days.
+              </div>
+            </div>
+
+            {/* Audit Trail */}
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Audit Trail</p>
+              <div className="space-y-3">
+                {mockAuditEntries.map((entry) => (
+                  <div key={entry.id} className="flex items-start gap-2.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-success mt-1.5 shrink-0" />
+                    <div>
+                      <p className="text-xs text-foreground">
+                        <span className="font-semibold">{entry.user}</span> {entry.action}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{entry.timestamp}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Panel Footer */}
+          <div className="p-4 border-t border-border flex gap-2">
+            <Button variant="outline" size="sm" className="flex-1 justify-center" onClick={() => openEditModal(selectedSecret)}>
+              <Pencil className="h-4 w-4 mr-1" />
+              Edit
+            </Button>
+            <Button variant="gold" size="sm" className="flex-1 justify-center">
+              <RefreshCwIcon className="h-4 w-4 mr-1" />
+              Rotate
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-danger hover:bg-danger/10"
+              onClick={() => handleDeleteSecret(selectedSecret.id)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       )}
 
       {/* Secret Modal */}
-      <Modal isOpen={showSecretModal} onClose={() => { setShowSecretModal(false); setEditingSecret(null); setShowValue(false); }} title={editingSecret ? 'Edit Secret' : 'New Secret'}>
-        <form onSubmit={editingSecret ? handleUpdateSecret : handleCreateSecret} className="space-y-3">
-          {error && <div className="text-xs text-[var(--color-danger)]">{error}</div>}
+      <Modal
+        isOpen={showSecretModal}
+        onClose={() => { setShowSecretModal(false); setEditingSecret(null); setShowValue(false); }}
+        title={editingSecret ? 'Edit Secret' : 'New Secret'}
+      >
+        <form onSubmit={editingSecret ? handleUpdateSecret : handleCreateSecret} className="space-y-4">
+          {error && <div className="text-xs text-danger">{error}</div>}
           <div className="space-y-1.5">
             <Label htmlFor="key">Key</Label>
-            <Input id="key" value={secretKey} onChange={(e) => setSecretKey(e.target.value)} placeholder="API_KEY" className="font-mono h-8" required />
+            <Input
+              id="key"
+              value={secretKey}
+              onChange={(e) => setSecretKey(e.target.value.toUpperCase().replace(/ /g, '_'))}
+              placeholder="API_KEY"
+              className="font-mono h-8"
+              required
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="value">Value</Label>
@@ -401,28 +680,39 @@ export default function ProjectSecretsPage() {
               <button
                 type="button"
                 onClick={() => setShowValue(!showValue)}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 hover:bg-[var(--accent)] rounded"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded"
               >
-                {showValue ? <Image src="/icons/eye-off.svg" alt="Hide" width={14} height={14} /> : <Image src="/icons/eye.svg" alt="Show" width={14} height={14} />}
+                {showValue ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
               </button>
             </div>
           </div>
-          <div className="flex justify-end gap-1.5 pt-1">
-            <Button type="button" variant="outline" size="sm" onClick={() => { setShowSecretModal(false); setEditingSecret(null); setShowValue(false); }}>Cancel</Button>
-            <Button type="submit" disabled={creating} size="sm">{creating ? 'Saving...' : editingSecret ? 'Update' : 'Create'}</Button>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button type="button" variant="outline" size="sm" onClick={() => { setShowSecretModal(false); setEditingSecret(null); setShowValue(false); }}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={creating} size="sm">
+              {creating ? 'Saving...' : editingSecret ? 'Update' : 'Create'}
+            </Button>
           </div>
         </form>
       </Modal>
 
       {/* Folder Modal */}
       <Modal isOpen={showFolderModal} onClose={() => { setShowFolderModal(false); setFolderName(''); }} title="New Folder">
-        <form onSubmit={handleCreateFolder} className="space-y-3">
-          {error && <div className="text-xs text-[var(--color-danger)]">{error}</div>}
+        <form onSubmit={handleCreateFolder} className="space-y-4">
+          {error && <div className="text-xs text-danger">{error}</div>}
           <div className="space-y-1.5">
             <Label htmlFor="folderName">Name</Label>
-            <Input id="folderName" value={folderName} onChange={(e) => setFolderName(e.target.value)} placeholder="production" className="h-8" required />
+            <Input
+              id="folderName"
+              value={folderName}
+              onChange={(e) => setFolderName(e.target.value)}
+              placeholder="production"
+              className="h-8"
+              required
+            />
           </div>
-          <div className="flex justify-end gap-1.5 pt-1">
+          <div className="flex justify-end gap-2 pt-1">
             <Button type="button" variant="outline" size="sm" onClick={() => setShowFolderModal(false)}>Cancel</Button>
             <Button type="submit" disabled={creating} size="sm">{creating ? 'Creating...' : 'Create'}</Button>
           </div>
@@ -432,22 +722,61 @@ export default function ProjectSecretsPage() {
       {/* Settings Modal */}
       <Modal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} title="Settings">
         <div className="space-y-2">
-          <div className="flex items-center justify-between py-1.5">
+          <div className="flex items-center justify-between py-2 px-2 rounded-lg hover:bg-muted cursor-pointer">
             <div>
-              <p className="text-xs font-medium text-[var(--color-foreground)]">Environments</p>
-              <p className="text-[10px] text-[var(--color-muted-foreground)]">Manage environments</p>
+              <p className="text-sm font-medium text-foreground">Environments</p>
+              <p className="text-xs text-muted-foreground">Manage environments</p>
             </div>
-            <Button variant="outline" size="sm">Manage</Button>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </div>
-          <div className="flex items-center justify-between py-1.5">
+          <div className="flex items-center justify-between py-2 px-2 rounded-lg hover:bg-muted cursor-pointer">
             <div>
-              <p className="text-xs font-medium text-[var(--color-foreground)]">Team</p>
-              <p className="text-[10px] text-[var(--color-muted-foreground)]">Manage members</p>
+              <p className="text-sm font-medium text-foreground">Team</p>
+              <p className="text-xs text-muted-foreground">Manage members</p>
             </div>
-            <Button variant="outline" size="sm"><Image src="/icons/users.svg" alt="Users" width={14} height={14} className="mr-1" />Manage</Button>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </div>
         </div>
       </Modal>
     </div>
+  );
+}
+
+// Refresh icon component
+function RefreshCwIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
+      <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+      <path d="M16 16h5v5" />
+    </svg>
+  );
+}
+
+function Search({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.3-4.3" />
+    </svg>
   );
 }

@@ -43,10 +43,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--color-background)]">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
-          <span className="text-sm text-[var(--color-muted-foreground)]">Loading...</span>
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <span className="text-sm text-muted-foreground">Loading...</span>
         </div>
       </div>
     );
@@ -55,7 +55,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-[var(--color-background)]">
+    <div className="min-h-screen bg-background">
       <Sidebar
         user={user}
         collapsed={sidebarCollapsed}
@@ -64,11 +64,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <Header user={user} sidebarCollapsed={sidebarCollapsed} />
 
       <main
-        className={`pt-12 transition-all duration-300 ${
-          sidebarCollapsed ? 'pl-16' : 'pl-56'
+        className={`pt-[52px] transition-all duration-300 ${
+          sidebarCollapsed ? 'pl-14' : 'pl-[220px]'
         }`}
       >
-        <div className="px-6 py-4">{children}</div>
+        <div className="p-6">{children}</div>
       </main>
     </div>
   );

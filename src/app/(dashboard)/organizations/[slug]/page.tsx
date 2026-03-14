@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardTitle } from '@/components/ui/c
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Modal } from '@/components/ui/modal';
+import { Badge } from '@/components/ui/badge';
 
 interface Project {
   id: string;
@@ -96,11 +97,12 @@ export default function OrganizationProjectsPage() {
     setNewProjectSlug(generateSlug(name));
   };
 
-  const getEnvBadgeClass = (envSlug: string) => {
-    const slug = envSlug.toLowerCase();
-    if (slug === 'prod' || slug === 'production') return 'env-prod';
-    if (slug === 'staging') return 'env-staging';
-    return 'env-dev';
+  const getEnvBadgeVariant = (envSlug: string) => {
+    const s = envSlug.toLowerCase();
+    if (s === 'prod' || s === 'production') return 'env-prod';
+    if (s === 'staging') return 'env-staging';
+    if (s === 'dev' || s === 'development') return 'env-dev';
+    return 'env-test';
   };
 
   const totalSecrets = organization?.projects.reduce((sum, p) => sum + p._count.secrets, 0) || 0;
@@ -110,17 +112,17 @@ export default function OrganizationProjectsPage() {
     return (
       <div>
         <div className="mb-4">
-          <div className="h-5 w-24 bg-[var(--color-surface)] rounded animate-pulse mb-2" />
-          <div className="h-8 w-48 bg-[var(--color-surface)] rounded animate-pulse" />
+          <div className="h-5 w-24 bg-muted rounded animate-pulse mb-2" />
+          <div className="h-8 w-48 bg-muted rounded animate-pulse" />
         </div>
         <div className="grid gap-2.5 md:grid-cols-3 mb-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-20 bg-[var(--color-card)] rounded-lg border border-[var(--color-border)] p-3 animate-pulse" />
+            <div key={i} className="h-20 bg-card rounded-lg border border-border p-3 animate-pulse" />
           ))}
         </div>
         <div className="grid gap-2.5 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-28 bg-[var(--color-card)] rounded-lg border border-[var(--color-border)] p-4 animate-pulse" />
+            <div key={i} className="h-28 bg-card rounded-lg border border-border p-4 animate-pulse" />
           ))}
         </div>
       </div>
@@ -130,7 +132,7 @@ export default function OrganizationProjectsPage() {
   if (!organization) {
     return (
       <div className="flex items-center justify-center py-16">
-        <div className="text-sm text-[var(--color-muted-foreground)]">Organization not found</div>
+        <div className="text-sm text-muted-foreground">Organization not found</div>
       </div>
     );
   }
@@ -141,7 +143,7 @@ export default function OrganizationProjectsPage() {
       <div className="mb-4">
         <Link
           href="/organizations"
-          className="inline-flex items-center text-xs text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] transition-colors"
+          className="inline-flex items-center text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           <Image src="/icons/arrow-left.svg" alt="Back" width={14} height={14} className="mr-1" />
           Back
@@ -151,12 +153,12 @@ export default function OrganizationProjectsPage() {
       {/* Header */}
       <div className="mb-4 flex items-start justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-[var(--color-surface)]">
-            <Image src="/icons/folder.svg" alt="Folder" width={16} height={16} className="text-[var(--color-muted-foreground)]" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-surface">
+            <Image src="/icons/folder.svg" alt="Folder" width={16} height={16} className="text-muted-foreground" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-[var(--color-foreground)]">{organization.name}</h1>
-            <p className="text-xs text-[var(--color-muted-foreground)]">Projects & secrets</p>
+            <h1 className="text-lg font-bold text-foreground">{organization.name}</h1>
+            <p className="text-xs text-muted-foreground">Projects & secrets</p>
           </div>
         </div>
         <Button onClick={() => setShowCreateModal(true)} size="sm">
@@ -167,38 +169,38 @@ export default function OrganizationProjectsPage() {
 
       {/* Stats */}
       <div className="grid gap-2.5 md:grid-cols-3 mb-4">
-        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-3">
+        <div className="rounded-lg border border-border bg-card p-3">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-[var(--color-muted-foreground)]">Projects</p>
-              <p className="text-xl font-semibold text-[var(--color-foreground)]">{organization.projects.length}</p>
+              <p className="text-xs font-medium text-muted-foreground">Projects</p>
+              <p className="text-xl font-extrabold text-foreground">{organization.projects.length}</p>
             </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--color-surface)]">
-              <Image src="/icons/folder.svg" alt="Folder" width={16} height={16} className="text-[var(--color-muted-foreground)]" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-surface">
+              <Image src="/icons/folder.svg" alt="Folder" width={16} height={16} className="text-muted-foreground" />
             </div>
           </div>
         </div>
 
-        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-3">
+        <div className="rounded-lg border border-border bg-card p-3">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-[var(--color-muted-foreground)]">Secrets</p>
-              <p className="text-xl font-semibold text-[var(--color-foreground)]">{totalSecrets}</p>
+              <p className="text-xs font-medium text-muted-foreground">Secrets</p>
+              <p className="text-xl font-extrabold text-foreground">{totalSecrets}</p>
             </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--color-surface)]">
-              <Image src="/icons/key.svg" alt="Key" width={16} height={16} className="text-[var(--color-muted-foreground)]" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-surface">
+              <Image src="/icons/key.svg" alt="Key" width={16} height={16} className="text-muted-foreground" />
             </div>
           </div>
         </div>
 
-        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-3">
+        <div className="rounded-lg border border-border bg-card p-3">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-[var(--color-muted-foreground)]">Envs</p>
-              <p className="text-xl font-semibold text-[var(--color-foreground)]">{totalEnvs}</p>
+              <p className="text-xs font-medium text-muted-foreground">Envs</p>
+              <p className="text-xl font-extrabold text-foreground">{totalEnvs}</p>
             </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--color-surface)]">
-              <Image src="/icons/server.svg" alt="Server" width={16} height={16} className="text-[var(--color-muted-foreground)]" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-surface">
+              <Image src="/icons/server.svg" alt="Server" width={16} height={16} className="text-muted-foreground" />
             </div>
           </div>
         </div>
@@ -206,13 +208,13 @@ export default function OrganizationProjectsPage() {
 
       {/* Projects */}
       {!organization.projects || organization.projects.length === 0 ? (
-        <Card className="border-dashed border-2 border-[var(--color-border)] bg-[var(--color-card)]/50">
+        <Card className="border-dashed border-2 border-border bg-card/50">
           <CardContent className="flex flex-col items-center justify-center py-10">
-            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--color-surface)]">
-              <Image src="/icons/folder.svg" alt="Folder" width={20} height={20} className="text-[var(--color-muted-foreground)]" />
+            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-surface">
+              <Image src="/icons/folder.svg" alt="Folder" width={20} height={20} className="text-muted-foreground" />
             </div>
-            <h3 className="text-sm font-medium text-[var(--color-foreground)]">No projects</h3>
-            <p className="mt-1 text-center text-xs text-[var(--color-muted-foreground)] max-w-xs">
+            <h3 className="text-sm font-semibold text-foreground">No projects</h3>
+            <p className="mt-1 text-center text-xs text-muted-foreground max-w-xs">
               Create your first project to manage secrets
             </p>
             <Button className="mt-3" size="sm" onClick={() => setShowCreateModal(true)}>
@@ -225,32 +227,29 @@ export default function OrganizationProjectsPage() {
         <div className="grid gap-2.5 md:grid-cols-2 lg:grid-cols-3">
           {organization.projects.map((project) => (
             <Link key={project.id} href={`/organizations/${slug}/projects/${project.id}`}>
-              <Card className="cursor-pointer bg-[var(--color-card)] border-[var(--color-border)] hover:border-[var(--color-border-hover)] transition-all group">
+              <Card className="cursor-pointer bg-card border-border hover:border-border-hover transition-all group">
                 <CardContent className="p-3">
                   <div className="flex items-start justify-between">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--color-surface)]">
-                      <Image src="/icons/key.svg" alt="Key" width={16} height={16} className="text-[var(--color-muted-foreground)]" />
+                    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-surface">
+                      <Image src="/icons/key.svg" alt="Key" width={16} height={16} className="text-muted-foreground" />
                     </div>
-                    <Image src="/icons/arrow-right.svg" alt="Arrow" width={14} height={14} className="text-[var(--color-muted-foreground)] transition-transform group-hover:translate-x-0.5" />
+                    <Image src="/icons/arrow-right.svg" alt="Arrow" width={14} height={14} className="text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                   </div>
                   <div className="mt-2.5">
-                    <CardTitle className="text-sm text-[var(--color-foreground)]">{project.name}</CardTitle>
+                    <CardTitle className="text-sm text-foreground">{project.name}</CardTitle>
                     <CardDescription className="text-xs">/{project.slug}</CardDescription>
                   </div>
 
                   {/* Environment badges */}
                   <div className="mt-2.5 flex flex-wrap gap-1">
                     {project.environments.map((env) => (
-                      <span
-                        key={env.id}
-                        className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border badge-${getEnvBadgeClass(env.slug)}`}
-                      >
+                      <Badge key={env.id} variant={getEnvBadgeVariant(env.slug)}>
                         {env.name}
-                      </span>
+                      </Badge>
                     ))}
                   </div>
 
-                  <div className="mt-2.5 pt-2.5 border-t border-[var(--color-border)] flex items-center justify-between text-xs text-[var(--color-muted-foreground)]">
+                  <div className="mt-2.5 pt-2.5 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Image src="/icons/server.svg" alt="Server" width={12} height={12} />
                       {project.environments.length}
@@ -270,7 +269,7 @@ export default function OrganizationProjectsPage() {
       <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="New Project">
         <form onSubmit={handleCreateProject} className="space-y-4">
           {error && (
-            <div className="rounded-md bg-[var(--color-danger)]/10 p-2.5 text-sm text-[var(--color-danger)] border border-[var(--color-danger)]/20">
+            <div className="rounded-md bg-danger/10 p-2.5 text-sm text-danger border border-danger/20">
               {error}
             </div>
           )}
