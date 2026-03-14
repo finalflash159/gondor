@@ -30,7 +30,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <link rel="icon" href="/gondor-logo.png" type="image/png" />
+        <link rel="icon" href="/favicon_io/favicon.svg" type="image/svg+xml" sizes="32x32" />
+        <link rel="apple-touch-icon" href="/favicon_io/apple-touch-icon.png" />
       </head>
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}

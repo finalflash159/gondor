@@ -92,31 +92,14 @@ export function Sidebar({ user, collapsed = false, onToggle }: SidebarProps) {
         <div className="flex items-center gap-3 px-4 py-4">
           <Image
             src="/gondor-logo.png"
-            alt="Logo"
-            width={28}
-            height={28}
-            className="rounded-lg dark:brightness-0 dark:invert"
+            alt="Gondor"
+            width={32}
+            height={32}
+            className="rounded-lg"
           />
-          <span className="text-lg font-extrabold tracking-tight text-foreground">Gondor</span>
-          <span className="ml-auto rounded px-2.5 py-1 text-[10px] font-bold bg-gold/20 text-gold">
-            FREE
-          </span>
+          <span className="text-xl font-extrabold tracking-tight text-foreground">Gondor</span>
         </div>
 
-        {/* Project Selector */}
-        {!collapsed && (
-          <div className="px-2 pb-3">
-            <button className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-muted transition-colors">
-              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary text-[10px] font-bold text-primary-foreground">
-                MT
-              </div>
-              <span className="flex-1 truncate text-sm font-medium text-foreground">
-                minas-tirith
-              </span>
-              <ChevronDown className="h-3 w-3 text-muted-foreground" />
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Navigation */}
