@@ -244,6 +244,15 @@ body {
 }
 
 /* ============================================
+   SVG ICONS - Theme support
+   ============================================ */
+
+/* All icons - consistent gray that works in both themes */
+img[src*="/icons/"] {
+  filter: invert(0.45) brightness(0.95);
+}
+
+/* ============================================
    COMPONENT UTILITIES
    ============================================ */
 
