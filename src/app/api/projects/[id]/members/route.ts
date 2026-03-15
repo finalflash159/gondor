@@ -1,53 +1,28 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { isProjectAdmin } from '@/lib/permissions';
-import { z } from 'zod';
+import { NextRequest } from 'next/server';
+import { requireProjectAccess, requireProjectAdmin } from '@/lib/api-auth';
+import { success, handleZodError, error, notFound } from '@/lib/api-response';
+import { addMemberSchema } from '@/lib/schemas';
+import { memberService } from '@/lib/services';
 
-const addMemberSchema = z.object({
-  email: z.string().email(),
-  roleId: z.string(),
-});
-
+/**
+ * GET /api/projects/[id]/members - List members
+ * POST /api/projects/[id]/members - Add member
+ */
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    const { id } = await params;
+    const { id: projectId } = await params;
+    await requireProjectAccess(projectId, 'secret:read');
 
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const hasAccess = await isProjectAdmin(session.user.id, id);
-    const project = await db.project.findUnique({ where: { id } });
-    const isOwner = project?.ownerId === session.user.id;
-
-    if (!hasAccess && !isOwner) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-    }
-
-    const members = await db.projectMember.findMany({
-      where: { projectId: id },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            name: true,
-          },
-        },
-        role: true,
-      },
-      orderBy: { createdAt: 'asc' },
-    });
-
-    return NextResponse.json(members);
-  } catch (error) {
-    console.error('Get members error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    const members = await memberService.getMembers(projectId);
+    return success(members);
+  } catch (err) {
+    console.error('Get members error:', err);
+    const response = handleAuthError(err);
+    if (response) return response;
+    return error('Internal server error', 500);
   }
 }
 
@@ -56,93 +31,99 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
     const { id: projectId } = await params;
-
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const isAdmin = await isProjectAdmin(session.user.id, projectId);
-    const project = await db.project.findUnique({ where: { id: projectId } });
-    const isOwner = project?.ownerId === session.user.id;
-
-    if (!isAdmin && !isOwner) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-    }
+    const { user } = await requireProjectAdmin(projectId);
 
     const body = await req.json();
-    const validatedData = addMemberSchema.parse(body);
+    const data = addMemberSchema.parse(body);
 
-    // Find user by email
-    const user = await db.user.findUnique({
-      where: { email: validatedData.email },
-    });
+    const member = await memberService.addMember(projectId, data, user.id);
+    return success(member, 201);
+  } catch (err) {
+    console.error('Add member error:', err);
+    const response = handleAuthError(err);
+    if (response) return response;
 
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (err instanceof Error) {
+      if (err.message === 'User not found') {
+        return notFound(err.message);
+      }
+      if (err.message.includes('already a member') || err.message === 'Invalid role') {
+        return error(err.message, 400);
+      }
     }
-
-    // Check if user is already a member
-    const existing = await db.projectMember.findUnique({
-      where: {
-        userId_projectId: {
-          userId: user.id,
-          projectId,
-        },
-      },
-    });
-
-    if (existing) {
-      return NextResponse.json({ error: 'User is already a member' }, { status: 400 });
-    }
-
-    // Verify role exists
-    const role = await db.role.findUnique({
-      where: { id: validatedData.roleId },
-    });
-
-    if (!role || role.projectId !== projectId) {
-      return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
-    }
-
-    const member = await db.projectMember.create({
-      data: {
-        userId: user.id,
-        projectId,
-        roleId: validatedData.roleId,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            name: true,
-          },
-        },
-        role: true,
-      },
-    });
-
-    // Log audit
-    await db.auditLog.create({
-      data: {
-        projectId,
-        userId: session.user.id,
-        action: 'created',
-        targetType: 'member',
-        targetId: member.id,
-        metadata: { memberEmail: user.email, role: role.name },
-      },
-    });
-
-    return NextResponse.json(member, { status: 201 });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
-    }
-
-    console.error('Add member error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return handleZodError(err);
   }
+}
+
+/**
+ * PATCH /api/projects/[id]/members/[memberId] - Update member role
+ */
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string; memberId: string }> }
+) {
+  try {
+    const { id: projectId, memberId } = await params;
+    const { user } = await requireProjectAdmin(projectId);
+
+    const body = await req.json();
+    const { roleId } = body;
+
+    const member = await memberService.updateMemberRole(projectId, memberId, roleId, user.id);
+    return success(member);
+  } catch (err) {
+    console.error('Update member error:', err);
+    const response = handleAuthError(err);
+    if (response) return response;
+
+    if (err instanceof Error) {
+      if (err.message === 'Member not found' || err.message === 'Invalid role') {
+        return error(err.message, 400);
+      }
+    }
+    return handleZodError(err);
+  }
+}
+
+/**
+ * DELETE /api/projects/[id]/members/[memberId] - Remove member
+ */
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string; memberId: string }> }
+) {
+  try {
+    const { id: projectId, memberId } = await params;
+    const { user } = await requireProjectAdmin(projectId);
+
+    await memberService.removeMember(projectId, memberId, user.id);
+    return success({ success: true });
+  } catch (err) {
+    console.error('Remove member error:', err);
+    const response = handleAuthError(err);
+    if (response) return response;
+
+    if (err instanceof Error) {
+      if (err.message === 'Member not found' || err.message === 'Cannot remove owner') {
+        return error(err.message, 400);
+      }
+    }
+    return handleZodError(err);
+  }
+}
+
+/**
+ * Helper to handle auth errors
+ */
+function handleAuthError(err: unknown) {
+  if (err instanceof Error) {
+    if (err.message === 'Unauthorized') {
+      return error('Unauthorized', 401);
+    }
+    if (err.message === 'Access denied' || err.message === 'Admin access required') {
+      return error(err.message, 403);
+    }
+  }
+  return null;
 }

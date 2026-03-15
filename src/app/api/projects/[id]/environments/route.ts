@@ -1,43 +1,28 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { hasPermission, isProjectAdmin } from '@/lib/permissions';
-import { z } from 'zod';
+import { NextRequest } from 'next/server';
+import { requireProjectAccess, requireProjectAdmin } from '@/lib/api-auth';
+import { success, handleZodError, error } from '@/lib/api-response';
+import { createEnvironmentSchema } from '@/lib/schemas';
+import { environmentService } from '@/lib/services';
 
-const createEnvSchema = z.object({
-  name: z.string().min(1),
-  slug: z.string().min(1).regex(/^[a-z0-9-]+$/),
-});
-
+/**
+ * GET /api/projects/[id]/environments - List environments
+ * POST /api/projects/[id]/environments - Create environment
+ */
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    const { id } = await params;
+    const { id: projectId } = await params;
+    await requireProjectAccess(projectId, 'secret:read');
 
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const hasAccess = await hasPermission(session.user.id, id, 'secret:read');
-    const project = await db.project.findUnique({ where: { id } });
-    const isOwner = project?.ownerId === session.user.id;
-
-    if (!hasAccess && !isOwner) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-    }
-
-    const environments = await db.projectEnvironment.findMany({
-      where: { projectId: id },
-      orderBy: { slug: 'asc' },
-    });
-
-    return NextResponse.json(environments);
-  } catch (error) {
-    console.error('Get environments error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    const environments = await environmentService.getEnvironments(projectId);
+    return success(environments);
+  } catch (err) {
+    console.error('Get environments error:', err);
+    const response = handleAuthError(err);
+    if (response) return response;
+    return error('Internal server error', 500);
   }
 }
 
@@ -46,50 +31,62 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    const { id } = await params;
-
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const isAdmin = await isProjectAdmin(session.user.id, id);
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-    }
+    const { id: projectId } = await params;
+    const { user } = await requireProjectAdmin(projectId);
 
     const body = await req.json();
-    const validatedData = createEnvSchema.parse(body);
+    const data = createEnvironmentSchema.parse(body);
 
-    // Check if slug already exists in project
-    const existing = await db.projectEnvironment.findUnique({
-      where: {
-        projectId_slug: {
-          projectId: id,
-          slug: validatedData.slug,
-        },
-      },
-    });
+    const environment = await environmentService.create(data, projectId, user.id);
+    return success(environment, 201);
+  } catch (err) {
+    console.error('Create environment error:', err);
+    const response = handleAuthError(err);
+    if (response) return response;
 
-    if (existing) {
-      return NextResponse.json({ error: 'Environment slug already exists' }, { status: 400 });
+    if (err instanceof Error && err.message.includes('already exists')) {
+      return error(err.message, 400);
     }
-
-    const environment = await db.projectEnvironment.create({
-      data: {
-        name: validatedData.name,
-        slug: validatedData.slug,
-        projectId: id,
-      },
-    });
-
-    return NextResponse.json(environment, { status: 201 });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
-    }
-
-    console.error('Create environment error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return handleZodError(err);
   }
+}
+
+/**
+ * DELETE /api/projects/[id]/environments/[envId] - Delete environment
+ */
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string; envId: string }> }
+) {
+  try {
+    const { id: projectId, envId } = await params;
+    const { user } = await requireProjectAdmin(projectId);
+
+    await environmentService.delete(envId, user.id);
+    return success({ success: true });
+  } catch (err) {
+    console.error('Delete environment error:', err);
+    const response = handleAuthError(err);
+    if (response) return response;
+
+    if (err instanceof Error && err.message === 'Environment not found') {
+      return error(err.message, 404);
+    }
+    return error('Internal server error', 500);
+  }
+}
+
+/**
+ * Helper to handle auth errors
+ */
+function handleAuthError(err: unknown) {
+  if (err instanceof Error) {
+    if (err.message === 'Unauthorized') {
+      return error('Unauthorized', 401);
+    }
+    if (err.message === 'Access denied' || err.message === 'Admin access required') {
+      return error(err.message, 403);
+    }
+  }
+  return null;
 }

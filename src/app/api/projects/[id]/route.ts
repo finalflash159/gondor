@@ -1,79 +1,34 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { hasProjectAccess, isProjectAdmin } from '@/lib/permissions';
-import { z } from 'zod';
+import { NextRequest } from 'next/server';
+import { requireProjectAccess } from '@/lib/api-auth';
+import { success, handleZodError, error, notFound } from '@/lib/api-response';
+import { updateProjectSchema } from '@/lib/schemas';
+import { projectService } from '@/lib/services';
 
-const updateProjectSchema = z.object({
-  name: z.string().min(1).optional(),
-});
-
+/**
+ * GET /api/projects/[id] - Get a project
+ * PUT /api/projects/[id] - Update a project
+ * DELETE /api/projects/[id] - Delete a project
+ */
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
     const { id } = await params;
+    await requireProjectAccess(id);
 
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const hasAccess = await hasProjectAccess(session.user.id, id);
-    if (!hasAccess) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-    }
-
-    const project = await db.project.findUnique({
-      where: { id },
-      include: {
-        org: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
-        environments: true,
-        owner: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        members: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-            role: true,
-          },
-        },
-        roles: true,
-        _count: {
-          select: {
-            secrets: true,
-            folders: true,
-            members: true,
-          },
-        },
-      },
-    });
+    const project = await projectService.getProjectById(id);
 
     if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+      return notFound('Project not found');
     }
 
-    return NextResponse.json(project);
-  } catch (error) {
-    console.error('Get project error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return success(project);
+  } catch (err) {
+    console.error('Get project error:', err);
+    const response = handleAuthError(err);
+    if (response) return response;
+    return error('Internal server error', 500);
   }
 }
 
@@ -82,38 +37,19 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
     const { id } = await params;
-
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const isAdmin = await isProjectAdmin(session.user.id, id);
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-    }
+    await requireProjectAccess(id, 'settings:manage');
 
     const body = await req.json();
-    const validatedData = updateProjectSchema.parse(body);
+    const data = updateProjectSchema.parse(body);
 
-    const project = await db.project.update({
-      where: { id },
-      data: validatedData,
-      include: {
-        environments: true,
-        org: true,
-      },
-    });
-
-    return NextResponse.json(project);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
-    }
-
-    console.error('Update project error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    const project = await projectService.update(id, data);
+    return success(project);
+  } catch (err) {
+    console.error('Update project error:', err);
+    const response = handleAuthError(err);
+    if (response) return response;
+    return handleZodError(err);
   }
 }
 
@@ -122,36 +58,44 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
     const { id } = await params;
+    const { user, isOwner } = await requireProjectAccess(id);
 
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const project = await db.project.findUnique({
-      where: { id },
-    });
-
+    // Check if owner can delete
+    const project = await projectService.getProjectById(id);
     if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+      return notFound('Project not found');
     }
 
-    // Only owner can delete
-    if (project.ownerId !== session.user.id) {
-      const canDelete = await hasPermission(session.user.id, id, 'project:delete');
-      if (!canDelete) {
-        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-      }
+    // Only owner can delete, unless they have project:delete permission
+    if (!isOwner) {
+      return error('Only owner can delete project', 403);
     }
 
-    await db.project.delete({
-      where: { id },
-    });
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Delete project error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    await projectService.delete(id, user.id);
+    return success({ success: true });
+  } catch (err) {
+    console.error('Delete project error:', err);
+    const response = handleAuthError(err);
+    if (response) return response;
+    return handleZodError(err);
   }
+}
+
+/**
+ * Helper to handle auth errors
+ */
+function handleAuthError(err: unknown) {
+  if (err instanceof Error) {
+    if (err.message === 'Unauthorized') {
+      return error('Unauthorized', 401);
+    }
+    if (err.message === 'Access denied' || err.message === 'Admin access required') {
+      return error(err.message, 403);
+    }
+    if (err.message === 'Project not found') {
+      return notFound(err.message);
+    }
+  }
+  return null;
 }

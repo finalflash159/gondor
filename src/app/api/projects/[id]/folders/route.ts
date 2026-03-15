@@ -1,53 +1,33 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { hasPermission } from '@/lib/permissions';
-import { z } from 'zod';
+import { NextRequest } from 'next/server';
+import { requireProjectAccess } from '@/lib/api-auth';
+import { success, handleZodError, error } from '@/lib/api-response';
+import { createFolderSchema, listFoldersQuerySchema } from '@/lib/schemas';
+import { folderService } from '@/lib/services';
 
-const createFolderSchema = z.object({
-  name: z.string().min(1),
-  envId: z.string(),
-  parentId: z.string().optional(),
-});
-
+/**
+ * GET /api/projects/[id]/folders - List folders
+ * POST /api/projects/[id]/folders - Create folder
+ */
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
     const { id: projectId } = await params;
+    await requireProjectAccess(projectId, 'secret:read');
+
     const { searchParams } = new URL(req.url);
-    const envId = searchParams.get('envId');
-
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const hasAccess = await hasPermission(session.user.id, projectId, 'secret:read');
-    const project = await db.project.findUnique({ where: { id: projectId } });
-    const isOwner = project?.ownerId === session.user.id;
-
-    if (!hasAccess && !isOwner) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-    }
-
-    const where: Record<string, unknown> = { projectId };
-    if (envId) where.envId = envId;
-
-    const folders = await db.folder.findMany({
-      where,
-      include: {
-        children: true,
-        parent: true,
-      },
-      orderBy: { name: 'asc' },
+    const query = listFoldersQuerySchema.parse({
+      envId: searchParams.get('envId'),
     });
 
-    return NextResponse.json(folders);
-  } catch (error) {
-    console.error('Get folders error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    const folders = await folderService.getFolders(projectId, query);
+    return success(folders);
+  } catch (err) {
+    console.error('Get folders error:', err);
+    const response = handleAuthError(err);
+    if (response) return response;
+    return error('Internal server error', 500);
   }
 }
 
@@ -56,80 +36,39 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
     const { id: projectId } = await params;
-
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const hasAccess = await hasPermission(session.user.id, projectId, 'folder:manage');
-    const project = await db.project.findUnique({ where: { id: projectId } });
-    const isOwner = project?.ownerId === session.user.id;
-
-    if (!hasAccess && !isOwner) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-    }
+    const { user } = await requireProjectAccess(projectId, 'folder:manage');
 
     const body = await req.json();
-    const validatedData = createFolderSchema.parse(body);
+    const data = createFolderSchema.parse(body);
 
-    // Check if parent folder exists and belongs to same project/env
-    if (validatedData.parentId) {
-      const parent = await db.folder.findUnique({
-        where: { id: validatedData.parentId },
-      });
-      if (!parent || parent.projectId !== projectId || parent.envId !== validatedData.envId) {
-        return NextResponse.json({ error: 'Invalid parent folder' }, { status: 400 });
+    const folder = await folderService.create(data, user.id, projectId);
+    return success(folder, 201);
+  } catch (err) {
+    console.error('Create folder error:', err);
+    const response = handleAuthError(err);
+    if (response) return response;
+
+    if (err instanceof Error) {
+      if (err.message.includes('already exists') || err.message === 'Invalid parent folder') {
+        return error(err.message, 400);
       }
     }
-
-    // Check for duplicate folder name in same parent/env
-    const existing = await db.folder.findFirst({
-      where: {
-        projectId,
-        envId: validatedData.envId,
-        parentId: validatedData.parentId || null,
-        name: validatedData.name,
-      },
-    });
-
-    if (existing) {
-      return NextResponse.json({ error: 'Folder already exists in this location' }, { status: 400 });
-    }
-
-    const folder = await db.folder.create({
-      data: {
-        name: validatedData.name,
-        projectId,
-        envId: validatedData.envId,
-        parentId: validatedData.parentId,
-      },
-      include: {
-        parent: true,
-        children: true,
-      },
-    });
-
-    // Log audit
-    await db.auditLog.create({
-      data: {
-        projectId,
-        userId: session.user.id,
-        action: 'created',
-        targetType: 'folder',
-        targetId: folder.id,
-        metadata: { name: folder.name },
-      },
-    });
-
-    return NextResponse.json(folder, { status: 201 });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
-    }
-
-    console.error('Create folder error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return handleZodError(err);
   }
+}
+
+/**
+ * Helper to handle auth errors
+ */
+function handleAuthError(err: unknown) {
+  if (err instanceof Error) {
+    if (err.message === 'Unauthorized') {
+      return error('Unauthorized', 401);
+    }
+    if (err.message === 'Access denied') {
+      return error(err.message, 403);
+    }
+  }
+  return null;
 }

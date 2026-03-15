@@ -1,71 +1,36 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { hasPermission } from '@/lib/permissions';
-import { encrypt, decrypt } from '@/lib/encryption';
-import { z } from 'zod';
+import { NextRequest } from 'next/server';
+import { requireProjectAccess } from '@/lib/api-auth';
+import { success, handleZodError, error, notFound } from '@/lib/api-response';
+import { updateSecretSchema } from '@/lib/schemas';
+import { secretService } from '@/lib/services';
 
-const updateSecretSchema = z.object({
-  key: z.string().min(1).optional(),
-  value: z.string().optional(),
-  folderId: z.string().optional(),
-  metadata: z.record(z.unknown()).optional(),
-});
-
+/**
+ * GET /api/secrets/[id] - Get a single secret
+ * PUT /api/secrets/[id] - Update a secret
+ * DELETE /api/secrets/[id] - Delete a secret
+ */
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
     const { id } = await params;
 
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const secret = await db.secret.findUnique({
-      where: { id },
-      include: {
-        folder: true,
-        environment: true,
-        project: {
-          select: {
-            id: true,
-            ownerId: true,
-          },
-        },
-      },
-    });
+    const secret = await secretService.getSecretById(id);
 
     if (!secret) {
-      return NextResponse.json({ error: 'Secret not found' }, { status: 404 });
+      return notFound('Secret not found');
     }
 
-    const hasAccess = await hasPermission(session.user.id, secret.projectId, 'secret:read');
-    const isOwner = secret.project.ownerId === session.user.id;
+    // Check access to the project
+    await requireProjectAccess(secret.projectId, 'secret:read');
 
-    if (!hasAccess && !isOwner) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-    }
-
-    // Decrypt the value
-    try {
-      const { ciphertext, iv, tag } = JSON.parse(secret.value);
-      const decryptedValue = decrypt(ciphertext, Buffer.from(process.env.MASTER_KEY || '', 'utf8'), iv, tag);
-      return NextResponse.json({
-        ...secret,
-        value: decryptedValue,
-      });
-    } catch {
-      return NextResponse.json({
-        ...secret,
-        value: secret.value,
-      });
-    }
-  } catch (error) {
-    console.error('Get secret error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return success(secret);
+  } catch (err) {
+    console.error('Get secret error:', err);
+    const response = handleAuthError(err);
+    if (response) return response;
+    return error('Internal server error', 500);
   }
 }
 
@@ -74,96 +39,32 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
     const { id } = await params;
 
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // First get the secret to check access
+    const existingSecret = await secretService.getSecretById(id);
+    if (!existingSecret) {
+      return notFound('Secret not found');
     }
 
-    const secret = await db.secret.findUnique({
-      where: { id },
-      include: { project: true },
-    });
-
-    if (!secret) {
-      return NextResponse.json({ error: 'Secret not found' }, { status: 404 });
-    }
-
-    const hasAccess = await hasPermission(session.user.id, secret.projectId, 'secret:write');
-    const isOwner = secret.project.ownerId === session.user.id;
-
-    if (!hasAccess && !isOwner) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-    }
+    // Check write access
+    await requireProjectAccess(existingSecret.projectId, 'secret:write');
 
     const body = await req.json();
-    const validatedData = updateSecretSchema.parse(body);
+    const data = updateSecretSchema.parse(body);
 
-    const updateData: Record<string, unknown> = {};
+    const secret = await secretService.update(id, data, existingSecret.projectId);
+    return success(secret);
+  } catch (err) {
+    console.error('Update secret error:', err);
+    const response = handleAuthError(err);
+    if (response) return response;
 
-    if (validatedData.key) {
-      updateData.key = validatedData.key;
+    if (err instanceof Error && err.message === 'Secret not found') {
+      return notFound();
     }
 
-    if (validatedData.folderId) {
-      updateData.folderId = validatedData.folderId;
-    }
-
-    if (validatedData.metadata) {
-      updateData.metadata = validatedData.metadata;
-    }
-
-    // If value is being updated, encrypt it and create a new version
-    if (validatedData.value) {
-      const encrypted = encrypt(validatedData.value);
-      updateData.value = JSON.stringify(encrypted);
-      updateData.version = { increment: 1 };
-      updateData.updatedBy = session.user.id;
-
-      // Create new version
-      await db.secretVersion.create({
-        data: {
-          secretId: id,
-          value: JSON.stringify(encrypted),
-          version: secret.version + 1,
-          createdBy: session.user.id,
-        },
-      });
-    }
-
-    const updated = await db.secret.update({
-      where: { id },
-      data: updateData,
-      include: {
-        folder: true,
-        environment: true,
-      },
-    });
-
-    // Log audit
-    await db.auditLog.create({
-      data: {
-        projectId: secret.projectId,
-        userId: session.user.id,
-        action: 'updated',
-        targetType: 'secret',
-        targetId: secret.id,
-        metadata: { key: updated.key },
-      },
-    });
-
-    return NextResponse.json({
-      ...updated,
-      value: validatedData.value || secret.value,
-    });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
-    }
-
-    console.error('Update secret error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return handleZodError(err);
   }
 }
 
@@ -172,48 +73,43 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
     const { id } = await params;
 
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // First get the secret to check access
+    const existingSecret = await secretService.getSecretById(id);
+    if (!existingSecret) {
+      return notFound('Secret not found');
     }
 
-    const secret = await db.secret.findUnique({
-      where: { id },
-      include: { project: true },
-    });
+    // Check delete access
+    await requireProjectAccess(existingSecret.projectId, 'secret:delete');
 
-    if (!secret) {
-      return NextResponse.json({ error: 'Secret not found' }, { status: 404 });
+    await secretService.delete(id, existingSecret.projectId);
+    return success({ success: true });
+  } catch (err) {
+    console.error('Delete secret error:', err);
+    const response = handleAuthError(err);
+    if (response) return response;
+
+    if (err instanceof Error && err.message === 'Secret not found') {
+      return notFound();
     }
 
-    const hasAccess = await hasPermission(session.user.id, secret.projectId, 'secret:delete');
-    const isOwner = secret.project.ownerId === session.user.id;
-
-    if (!hasAccess && !isOwner) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-    }
-
-    await db.secret.delete({
-      where: { id },
-    });
-
-    // Log audit
-    await db.auditLog.create({
-      data: {
-        projectId: secret.projectId,
-        userId: session.user.id,
-        action: 'deleted',
-        targetType: 'secret',
-        targetId: secret.id,
-        metadata: { key: secret.key },
-      },
-    });
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Delete secret error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return handleZodError(err);
   }
+}
+
+/**
+ * Helper to handle auth errors
+ */
+function handleAuthError(err: unknown) {
+  if (err instanceof Error) {
+    if (err.message === 'Unauthorized') {
+      return error('Unauthorized', 401);
+    }
+    if (err.message === 'Access denied' || err.message === 'Insufficient permissions') {
+      return error(err.message, 403);
+    }
+  }
+  return null;
 }

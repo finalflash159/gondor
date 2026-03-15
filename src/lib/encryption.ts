@@ -3,12 +3,11 @@ import bcrypt from 'bcryptjs';
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;
-const TAG_LENGTH = 16;
 const SALT_LENGTH = 32;
 const KEY_LENGTH = 32;
 const ITERATIONS = 100000;
 
-function getMasterKey(): Buffer {
+export function getMasterKey(): Buffer {
   const key = process.env.MASTER_KEY;
   if (!key) {
     throw new Error('MASTER_KEY environment variable is not set');
@@ -93,7 +92,8 @@ export function encryptProjectKey(projectKey: Buffer): {
   iv: string;
   tag: string;
 } {
-  return encrypt(projectKey.toString('base64'));
+  const { ciphertext, iv, tag } = encrypt(projectKey.toString('base64'));
+  return { encryptedKey: ciphertext, iv, tag };
 }
 
 /**
