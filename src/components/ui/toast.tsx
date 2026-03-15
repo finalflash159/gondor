@@ -31,10 +31,10 @@ export function useToast() {
 
 function Toast({ className, variant = 'default', ...props }: ToastProps) {
   const variants = {
-    default: 'bg-white border-slate-200',
-    success: 'bg-emerald-50 border-emerald-200',
-    error: 'bg-red-50 border-red-200',
-    warning: 'bg-amber-50 border-amber-200',
+    default: 'bg-card border-border',
+    success: 'bg-success/10 border-success/30',
+    error: 'bg-danger/10 border-danger/30',
+    warning: 'bg-warning/10 border-warning/30',
   };
 
   return (
@@ -50,18 +50,18 @@ function Toast({ className, variant = 'default', ...props }: ToastProps) {
 }
 
 function ToastTitle({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
-  return <p className={cn('text-sm font-semibold', className)} {...props} />;
+  return <p className={cn('text-sm font-semibold text-foreground', className)} {...props} />;
 }
 
 function ToastDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
-  return <p className={cn('text-sm opacity-90', className)} {...props} />;
+  return <p className={cn('text-sm text-muted-foreground', className)} {...props} />;
 }
 
 function ToastClose({ className, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       className={cn(
-        'absolute right-2 top-2 rounded-md p-1 text-slate-500 opacity-0 transition-opacity hover:text-slate-900 focus:opacity-100 focus:outline-none focus:ring-2 group-hover:opacity-100',
+        'absolute right-2 top-2 rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 group-hover:opacity-100',
         className
       )}
       {...props}
@@ -108,4 +108,4 @@ function ToastProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export { Toast, ToastTitle, ToastDescription, ToastClose, ToastProvider, useToast };
+export { Toast, ToastTitle, ToastDescription, ToastClose, ToastProvider };

@@ -25,17 +25,22 @@ interface ThemeProviderProps {
   defaultTheme?: Theme;
 }
 
+function getInitialTheme(): Theme {
+  if (typeof window === 'undefined') return 'dark';
+  const stored = localStorage.getItem('theme') as Theme | null;
+  if (stored) return stored;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
 export function ThemeProvider({ children, defaultTheme = 'dark' }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<Theme>(defaultTheme);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-    const stored = localStorage.getItem('theme') as Theme | null;
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const initialTheme = stored || (prefersDark ? 'dark' : 'light');
+    const initialTheme = getInitialTheme();
     setThemeState(initialTheme);
     document.documentElement.setAttribute('data-theme', initialTheme);
+    setMounted(true);
   }, []);
 
   const setTheme = (newTheme: Theme) => {
@@ -48,14 +53,12 @@ export function ThemeProvider({ children, defaultTheme = 'dark' }: ThemeProvider
     setTheme(theme === 'dark' ? 'light' : 'dark');
   };
 
-  // Prevent flash
-  if (!mounted) {
-    return <>{children}</>;
-  }
-
+  // Prevent flash - always render children with theme class
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
-      {children}
+      <div data-theme={theme} className="min-h-screen">
+        {children}
+      </div>
     </ThemeContext.Provider>
   );
 }

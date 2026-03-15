@@ -18,15 +18,6 @@ const Avatar = React.forwardRef<HTMLDivElement, AvatarProps>(
   ({ className, src, alt, fallback, size = 'md', ...props }, ref) => {
     const [imageError, setImageError] = React.useState(false);
 
-    const getInitials = (name: string) => {
-      return name
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2);
-    };
-
     return (
       <div
         ref={ref}

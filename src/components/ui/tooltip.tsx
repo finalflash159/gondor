@@ -40,7 +40,7 @@ export function Tooltip({ content, children, side = 'top', delayDuration = 200 }
       {isVisible && (
         <div
           className={cn(
-            'absolute z-50 whitespace-nowrap rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white shadow-md animate-in fade-in-0 zoom-in-95',
+            'absolute z-50 whitespace-nowrap rounded-md bg-popover px-3 py-1.5 text-xs font-medium text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95',
             sideClasses[side]
           )}
         >
