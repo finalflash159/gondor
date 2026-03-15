@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -21,22 +20,14 @@ import {
   Plus,
   ArrowLeft,
   Key,
-  Clock,
-  User,
   ChevronRight,
+  RefreshCw,
 } from 'lucide-react';
 
 interface Environment {
   id: string;
   name: string;
   slug: string;
-}
-
-interface Folder {
-  id: string;
-  name: string;
-  parentId: string | null;
-  children: Folder[];
 }
 
 interface Secret {
@@ -46,6 +37,7 @@ interface Secret {
   envId: string;
   folderId: string;
   version: number;
+  expiresAt: string | null;
   createdAt: string;
   updatedAt: string;
   environment: Environment;
@@ -64,13 +56,19 @@ export default function ProjectSecretsPage() {
   const slug = params.slug as string;
 
   const [environments, setEnvironments] = useState<Environment[]>([]);
-  const [folders, setFolders] = useState<Folder[]>([]);
   const [secrets, setSecrets] = useState<Secret[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeEnv, setActiveEnv] = useState<string>('');
   const [showSecretModal, setShowSecretModal] = useState(false);
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showEnvModal, setShowEnvModal] = useState(false);
+  const [showTeamModal, setShowTeamModal] = useState(false);
+  const [envName, setEnvName] = useState('');
+  const [envSlug, setEnvSlug] = useState('');
+  const [teamMembers, setTeamMembers] = useState<{id: string; user: {id: string; email: string; name: string | null}; role: {name: string; slug: string}}[]>([]);
+  const [memberEmail, setMemberEmail] = useState('');
+  const [memberRole, setMemberRole] = useState('viewer');
   const [editingSecret, setEditingSecret] = useState<Secret | null>(null);
   const [selectedSecret, setSelectedSecret] = useState<Secret | null>(null);
   const [visibleSecrets, setVisibleSecrets] = useState<Set<string>>(new Set());
@@ -81,9 +79,11 @@ export default function ProjectSecretsPage() {
   // Form states
   const [secretKey, setSecretKey] = useState('');
   const [secretValue, setSecretValue] = useState('');
+  const [secretExpiresAt, setSecretExpiresAt] = useState('');
   const [folderName, setFolderName] = useState('');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
+  const [integrations] = useState<{id: string; name: string; connected: boolean}[]>([]);
 
   useEffect(() => {
     if (projectId) {
@@ -97,6 +97,42 @@ export default function ProjectSecretsPage() {
     }
   }, [activeEnv]);
 
+  // Handle imported secrets from header
+  useEffect(() => {
+    const importSecrets = async () => {
+      const imported = sessionStorage.getItem('importedSecrets');
+      if (imported && activeEnv) {
+        const secrets = JSON.parse(imported);
+        // Create secrets one by one
+        for (const [key, value] of Object.entries(secrets)) {
+          try {
+            await fetch(`/api/projects/${projectId}/secrets`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ key, value, envId: activeEnv }),
+            });
+          } catch (err) {
+            console.error('Failed to import secret:', key, err);
+          }
+        }
+        sessionStorage.removeItem('importedSecrets');
+        fetchSecrets();
+      }
+    };
+    importSecrets();
+  }, [activeEnv, projectId]);
+
+  // Set up secrets for export
+  useEffect(() => {
+    if (secrets.length > 0) {
+      const exportData: Record<string, string> = {};
+      secrets.forEach(s => {
+        exportData[s.key] = s.value;
+      });
+      sessionStorage.setItem('exportSecrets', JSON.stringify(exportData));
+    }
+  }, [secrets]);
+
   const fetchProjectData = async () => {
     try {
       const [envsRes, foldersRes] = await Promise.all([
@@ -105,7 +141,8 @@ export default function ProjectSecretsPage() {
       ]);
 
       if (envsRes.ok) {
-        const envs = await envsRes.json();
+        const envsJson = await envsRes.json();
+        const envs = envsJson.data || envsJson;
         setEnvironments(envs);
         if (envs.length > 0 && !activeEnv) {
           setActiveEnv(envs[0].id);
@@ -113,7 +150,8 @@ export default function ProjectSecretsPage() {
       }
 
       if (foldersRes.ok) {
-        setFolders(await foldersRes.json());
+        await foldersRes.json();
+        // Folders can be used for UI grouping
       }
     } catch (err) {
       console.error('Failed to fetch project data:', err);
@@ -126,7 +164,8 @@ export default function ProjectSecretsPage() {
     try {
       const res = await fetch(`/api/projects/${projectId}/secrets?envId=${activeEnv}`);
       if (res.ok) {
-        setSecrets(await res.json());
+        const json = await res.json();
+        setSecrets(json?.data ?? json);
       }
     } catch (err) {
       console.error('Failed to fetch secrets:', err);
@@ -142,7 +181,7 @@ export default function ProjectSecretsPage() {
       const res = await fetch(`/api/projects/${projectId}/secrets`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: secretKey, value: secretValue, envId: activeEnv }),
+        body: JSON.stringify({ key: secretKey, value: secretValue, envId: activeEnv, expiresAt: secretExpiresAt || undefined }),
       });
 
       const data = await res.json();
@@ -154,6 +193,7 @@ export default function ProjectSecretsPage() {
       setShowSecretModal(false);
       setSecretKey('');
       setSecretValue('');
+      setSecretExpiresAt('');
       setEditingSecret(null);
       fetchSecrets();
     } catch {
@@ -174,7 +214,7 @@ export default function ProjectSecretsPage() {
       const res = await fetch(`/api/secrets/${editingSecret.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: secretKey, value: secretValue }),
+        body: JSON.stringify({ key: secretKey, value: secretValue, expiresAt: secretExpiresAt || null }),
       });
 
       const data = await res.json();
@@ -210,6 +250,23 @@ export default function ProjectSecretsPage() {
     }
   };
 
+  const handleRotateSecret = async (secretId: string) => {
+    // Generate new random value
+    const newValue = crypto.randomUUID();
+    try {
+      const res = await fetch(`/api/secrets/${secretId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: newValue }),
+      });
+      if (res.ok) {
+        fetchSecrets();
+      }
+    } catch (err) {
+      console.error('Failed to rotate:', err);
+    }
+  };
+
   const handleCreateFolder = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -235,10 +292,117 @@ export default function ProjectSecretsPage() {
     }
   };
 
+  const handleCreateEnv = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setCreating(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/environments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: envName, slug: envSlug }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Failed to create environment');
+        return;
+      }
+      setShowEnvModal(false);
+      setEnvName('');
+      setEnvSlug('');
+      fetchProjectData();
+    } catch {
+      setError('An error occurred');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleDeleteEnv = async (envId: string) => {
+    if (!confirm('Are you sure? This will delete all secrets in this environment.')) return;
+    try {
+      const res = await fetch(`/api/projects/${projectId}/environments/${envId}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        fetchProjectData();
+      }
+    } catch {
+      setError('Failed to delete environment');
+    }
+  };
+
+  const fetchTeamMembers = async () => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/members`);
+      if (res.ok) {
+        const json = await res.json();
+        setTeamMembers(json?.data ?? json);
+      }
+    } catch (err) {
+      console.error('Failed to fetch team members:', err);
+    }
+  };
+
+  const openTeamModal = () => {
+    setShowTeamModal(true);
+    fetchTeamMembers();
+  };
+
+  const handleAddMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setCreating(true);
+    try {
+      // Get roles first
+      const rolesRes = await fetch(`/api/projects/${projectId}/roles`);
+      const rolesJson = await rolesRes.json();
+      const roles = rolesJson.data || rolesJson;
+      const selectedRole = roles.find((r: {slug: string}) => r.slug === memberRole);
+
+      if (!selectedRole) {
+        setError('Role not found');
+        return;
+      }
+
+      const res = await fetch(`/api/projects/${projectId}/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: memberEmail, roleId: selectedRole.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Failed to add member');
+        return;
+      }
+      setMemberEmail('');
+      fetchTeamMembers();
+    } catch {
+      setError('An error occurred');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string) => {
+    if (!confirm('Remove this member?')) return;
+    try {
+      const res = await fetch(`/api/projects/${projectId}/members/${memberId}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        fetchTeamMembers();
+      }
+    } catch {
+      setError('Failed to remove member');
+    }
+  };
+
   const openEditModal = (secret: Secret) => {
     setEditingSecret(secret);
     setSecretKey(secret.key);
     setSecretValue(secret.value);
+    setSecretExpiresAt(secret.expiresAt ? secret.expiresAt.split('T')[0] : '');
     setShowSecretModal(true);
   };
 
@@ -319,7 +483,7 @@ export default function ProjectSecretsPage() {
               <Settings className="h-4 w-4 mr-1" />
               Settings
             </Button>
-            <Button size="sm" onClick={() => { setEditingSecret(null); setSecretKey(''); setSecretValue(''); setShowSecretModal(true); }}>
+            <Button size="sm" onClick={() => { setEditingSecret(null); setSecretKey(''); setSecretValue(''); setSecretExpiresAt(''); setShowSecretModal(true); }}>
               <Plus className="h-4 w-4 mr-1" />
               Add Secret
             </Button>
@@ -377,27 +541,45 @@ export default function ProjectSecretsPage() {
         </div>
 
         {/* Stats Row */}
-        <div className="grid grid-cols-4 gap-3 mb-4">
-          <div className="rounded-lg border border-border bg-card p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Total Secrets</p>
-            <p className="text-xl font-extrabold text-foreground mt-0.5">{filteredSecrets.length}</p>
+        {(() => {
+          const totalSecrets = secrets.length;
+          const now = new Date();
+          const expiringSoon = secrets.filter(s => s.expiresAt && new Date(s.expiresAt) < now).length;
+          const lastUpdated = secrets.length > 0
+            ? secrets.reduce((latest, s) => new Date(s.updatedAt) > latest ? new Date(s.updatedAt) : latest, new Date(0))
+            : null;
+          const syncTime = lastUpdated
+            ? Math.floor((now.getTime() - lastUpdated.getTime()) / 60000)
+            : null;
+          const syncText = syncTime === null ? 'Never' : syncTime < 1 ? 'Just now' : syncTime < 60 ? `${syncTime}m ago` : `${Math.floor(syncTime / 60)}h ago`;
+          const connectedIntegrations = integrations.filter(i => i.connected).length;
+          const integrationNames = integrations.filter(i => i.connected).slice(0, 2).map(i => i.name).join(', ');
+          const moreIntegrations = connectedIntegrations > 2 ? ` +${connectedIntegrations - 2}` : '';
+
+          return (
+          <div className="grid grid-cols-4 gap-3 mb-4">
+            <div className="rounded-lg border border-border bg-card p-3">
+              <p className="text-[11px] font-medium text-muted-foreground">Total Secrets</p>
+              <p className="text-xl font-extrabold text-foreground mt-0.5">{totalSecrets}</p>
+            </div>
+            <div className="rounded-lg border border-border bg-card p-3">
+              <p className="text-[11px] font-medium text-muted-foreground">Last Synced</p>
+              <p className="text-sm font-bold text-foreground mt-0.5 pt-1">{syncText}</p>
+              <p className="text-[10px] text-success mt-0.5">{secrets.length > 0 ? 'All healthy' : 'No secrets'}</p>
+            </div>
+            <div className="rounded-lg border border-border bg-card p-3">
+              <p className="text-[11px] font-medium text-muted-foreground">Expiring Soon</p>
+              <p className="text-xl font-extrabold text-danger mt-0.5">{expiringSoon}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">{expiringSoon > 0 ? 'Rotation needed' : 'All good'}</p>
+            </div>
+            <div className="rounded-lg border border-border bg-card p-3">
+              <p className="text-[11px] font-medium text-muted-foreground">Active Integrations</p>
+              <p className="text-xl font-extrabold text-foreground mt-0.5">{connectedIntegrations}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">{connectedIntegrations > 0 ? `${integrationNames}${moreIntegrations}` : 'None connected'}</p>
+            </div>
           </div>
-          <div className="rounded-lg border border-border bg-card p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Last Synced</p>
-            <p className="text-sm font-bold text-foreground mt-0.5 pt-1">2m ago</p>
-            <p className="text-[10px] text-success mt-0.5">All healthy</p>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Expiring Soon</p>
-            <p className="text-xl font-extrabold text-danger mt-0.5">2</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Rotation needed</p>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-3">
-            <p className="text-[11px] font-medium text-muted-foreground">Active Integrations</p>
-            <p className="text-xl font-extrabold text-foreground mt-0.5">5</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">GitHub, K8s +3</p>
-          </div>
-        </div>
+          );
+        })()}
 
         {/* Secrets Table */}
         {filteredSecrets.length === 0 ? (
@@ -494,6 +676,13 @@ export default function ProjectSecretsPage() {
 
                   {/* Actions */}
                   <div className="flex items-center justify-end gap-1">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleRotateSecret(secret.id); }}
+                      className="p-1.5 rounded hover:bg-muted"
+                      title="Rotate secret"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); openEditModal(secret); }}
                       className="p-1.5 rounded hover:bg-muted"
@@ -649,7 +838,7 @@ export default function ProjectSecretsPage() {
       {/* Secret Modal */}
       <Modal
         isOpen={showSecretModal}
-        onClose={() => { setShowSecretModal(false); setEditingSecret(null); setShowValue(false); }}
+        onClose={() => { setShowSecretModal(false); setEditingSecret(null); setSecretExpiresAt(''); setShowValue(false); }}
         title={editingSecret ? 'Edit Secret' : 'New Secret'}
       >
         <form onSubmit={editingSecret ? handleUpdateSecret : handleCreateSecret} className="space-y-4">
@@ -686,8 +875,19 @@ export default function ProjectSecretsPage() {
               </button>
             </div>
           </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="expiresAt">Expiration Date (Optional)</Label>
+            <Input
+              id="expiresAt"
+              type="date"
+              value={secretExpiresAt}
+              onChange={(e) => setSecretExpiresAt(e.target.value)}
+              className="h-8"
+            />
+            <p className="text-xs text-muted-foreground">Secret will show as expiring after this date</p>
+          </div>
           <div className="flex justify-end gap-2 pt-1">
-            <Button type="button" variant="outline" size="sm" onClick={() => { setShowSecretModal(false); setEditingSecret(null); setShowValue(false); }}>
+            <Button type="button" variant="outline" size="sm" onClick={() => { setShowSecretModal(false); setEditingSecret(null); setSecretExpiresAt(''); setShowValue(false); }}>
               Cancel
             </Button>
             <Button type="submit" disabled={creating} size="sm">
@@ -721,22 +921,142 @@ export default function ProjectSecretsPage() {
 
       {/* Settings Modal */}
       <Modal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} title="Settings">
-        <div className="space-y-2">
-          <div className="flex items-center justify-between py-2 px-2 rounded-lg hover:bg-muted cursor-pointer">
-            <div>
+        <div className="space-y-4">
+          {/* Environments Section */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
               <p className="text-sm font-medium text-foreground">Environments</p>
-              <p className="text-xs text-muted-foreground">Manage environments</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowEnvModal(true)}
+                className="h-6 text-xs"
+              >
+                Add
+              </Button>
             </div>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            <div className="space-y-1">
+              {environments.map((env) => (
+                <div
+                  key={env.id}
+                  className="flex items-center justify-between py-2 px-2 rounded-lg hover:bg-muted"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full bg-${env.slug}`} />
+                    <span className="text-sm text-foreground">{env.name}</span>
+                    <span className="text-xs text-muted-foreground">({env.slug})</span>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteEnv(env.id)}
+                    className="text-xs text-danger hover:text-danger/80"
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))}
+              {environments.length === 0 && (
+                <p className="text-xs text-muted-foreground py-2">No environments yet</p>
+              )}
+            </div>
           </div>
-          <div className="flex items-center justify-between py-2 px-2 rounded-lg hover:bg-muted cursor-pointer">
-            <div>
-              <p className="text-sm font-medium text-foreground">Team</p>
-              <p className="text-xs text-muted-foreground">Manage members</p>
+
+          <div className="border-t border-border pt-2">
+            <div
+              className="flex items-center justify-between py-2 px-2 rounded-lg hover:bg-muted cursor-pointer"
+              onClick={openTeamModal}
+            >
+              <div>
+                <p className="text-sm font-medium text-foreground">Team</p>
+                <p className="text-xs text-muted-foreground">Manage members</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </div>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </div>
         </div>
+      </Modal>
+
+      {/* Team Modal */}
+      <Modal isOpen={showTeamModal} onClose={() => setShowTeamModal(false)} title="Team Members">
+        <div className="space-y-4">
+          {/* Add Member Form */}
+          <form onSubmit={handleAddMember} className="flex gap-2">
+            <Input
+              type="email"
+              value={memberEmail}
+              onChange={(e) => setMemberEmail(e.target.value)}
+              placeholder="User email"
+              className="h-8 flex-1"
+              required
+            />
+            <select
+              value={memberRole}
+              onChange={(e) => setMemberRole(e.target.value)}
+              className="h-8 rounded-md border border-border bg-background px-2 text-sm"
+            >
+              <option value="admin">Admin</option>
+              <option value="editor">Editor</option>
+              <option value="viewer">Viewer</option>
+            </select>
+            <Button type="submit" disabled={creating} size="sm">Add</Button>
+          </form>
+
+          {/* Members List */}
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {teamMembers.map((member) => (
+              <div key={member.id} className="flex items-center justify-between py-2 px-2 rounded-lg hover:bg-muted">
+                <div>
+                  <p className="text-sm text-foreground">{member.user.name || member.user.email}</p>
+                  <p className="text-xs text-muted-foreground">{member.role.name}</p>
+                </div>
+                <button
+                  onClick={() => handleRemoveMember(member.id)}
+                  className="text-xs text-danger hover:text-danger/80"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            {teamMembers.length === 0 && (
+              <p className="text-xs text-muted-foreground py-2">No members yet</p>
+            )}
+          </div>
+        </div>
+      </Modal>
+
+      {/* Environment Modal */}
+      <Modal isOpen={showEnvModal} onClose={() => { setShowEnvModal(false); setEnvName(''); setEnvSlug(''); }} title="New Environment">
+        <form onSubmit={handleCreateEnv} className="space-y-4">
+          {error && <div className="text-xs text-danger">{error}</div>}
+          <div className="space-y-1.5">
+            <Label htmlFor="envName">Name</Label>
+            <Input
+              id="envName"
+              value={envName}
+              onChange={(e) => {
+                setEnvName(e.target.value);
+                setEnvSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
+              }}
+              placeholder="Production"
+              className="h-8"
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="envSlug">Slug</Label>
+            <Input
+              id="envSlug"
+              value={envSlug}
+              onChange={(e) => setEnvSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+              placeholder="production"
+              className="h-8"
+              required
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button type="button" variant="outline" size="sm" onClick={() => setShowEnvModal(false)}>Cancel</Button>
+            <Button type="submit" disabled={creating} size="sm">{creating ? 'Creating...' : 'Create'}</Button>
+          </div>
+        </form>
       </Modal>
     </div>
   );

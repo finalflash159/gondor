@@ -48,7 +48,8 @@ export default function OrganizationProjectsPage() {
     try {
       const res = await fetch(`/api/organizations/${slug}`);
       if (res.ok) {
-        const data = await res.json();
+        const json = await res.json();
+        const data = json?.data ?? json;
         setOrganization(data);
       }
     } catch (err) {
@@ -105,8 +106,8 @@ export default function OrganizationProjectsPage() {
     return 'env-test';
   };
 
-  const totalSecrets = organization?.projects.reduce((sum, p) => sum + p._count.secrets, 0) || 0;
-  const totalEnvs = organization?.projects.reduce((sum, p) => p.environments.length, 0) || 0;
+  const totalSecrets = organization?.projects?.reduce((sum, p) => sum + (p._count?.secrets ?? 0), 0) ?? 0;
+  const totalEnvs = organization?.projects?.reduce((sum, p) => sum + (p.environments?.length ?? 0), 0) ?? 0;
 
   if (loading) {
     return (
