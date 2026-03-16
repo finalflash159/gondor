@@ -3,11 +3,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Settings, Users, CreditCard, Building, Loader2, Save } from 'lucide-react';
+import { Settings, Users, CreditCard, Building, Loader2, Save, Trash2, AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Modal } from '@/components/ui/modal';
 
 interface Organization {
   id: string;
@@ -25,6 +26,28 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState('');
   const [success, setSuccess] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+
+  const handleDeleteOrg = async () => {
+    if (deleteConfirmText !== organization?.name) return;
+
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/organizations/${slug}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        router.push('/organizations');
+      }
+    } catch (err) {
+      console.error('Failed to delete organization:', err);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const fetchOrganization = useCallback(async () => {
     try {
@@ -165,6 +188,88 @@ export default function SettingsPage() {
           ))}
         </div>
       </div>
+
+      {/* Danger Zone */}
+      <div className="mt-8 pt-6 border-t border-border">
+        <h2 className="text-sm font-semibold text-danger mb-4 flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4" />
+          Danger Zone
+        </h2>
+        <Card className="bg-card border-danger/20">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium text-foreground">Delete Organization</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Once you delete an organization, there is no going back. All projects and secrets will be permanently deleted.
+                </p>
+              </div>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => setShowDeleteModal(true)}
+              >
+                <Trash2 className="h-4 w-4 mr-1.5" />
+                Delete
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => { setShowDeleteModal(false); setDeleteConfirmText(''); }}
+        title="Delete Organization"
+      >
+        <div className="space-y-4">
+          <div className="rounded-md bg-danger/10 p-3 border border-danger/20">
+            <p className="text-sm text-danger font-medium">
+              This action cannot be undone.
+            </p>
+            <p className="text-xs text-danger/80 mt-1">
+              All projects, secrets, and data associated with this organization will be permanently deleted.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirmDelete">
+              Type <span className="font-mono font-bold">{organization?.name}</span> to confirm
+            </Label>
+            <Input
+              id="confirmDelete"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder={organization?.name}
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => { setShowDeleteModal(false); setDeleteConfirmText(''); }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              disabled={deleteConfirmText !== organization?.name || deleting}
+              onClick={handleDeleteOrg}
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete Organization'
+              )}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
