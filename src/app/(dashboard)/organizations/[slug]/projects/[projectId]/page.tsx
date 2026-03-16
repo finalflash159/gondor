@@ -22,6 +22,7 @@ import {
   Key,
   ChevronRight,
   RefreshCw,
+  X,
 } from 'lucide-react';
 
 interface Environment {
@@ -30,16 +31,26 @@ interface Environment {
   slug: string;
 }
 
+interface Folder {
+  id: string;
+  name: string;
+  path: string | null;
+}
+
 interface Secret {
   id: string;
   key: string;
   value: string;
   envId: string;
   folderId: string;
+  folder?: Folder;
   version: number;
   expiresAt: string | null;
   createdAt: string;
   updatedAt: string;
+  createdBy: string;
+  updatedBy: string | null;
+  metadata: Record<string, unknown> | null;
   environment: Environment;
 }
 
@@ -84,6 +95,26 @@ export default function ProjectSecretsPage() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const [integrations] = useState<{id: string; name: string; connected: boolean}[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
+
+  // Fetch audit logs for selected secret
+  useEffect(() => {
+    if (selectedSecret) {
+      fetchAuditLogs(selectedSecret.id);
+    }
+  }, [selectedSecret?.id]);
+
+  const fetchAuditLogs = async (secretId: string) => {
+    try {
+      const res = await fetch(`/api/secrets/${secretId}/audit-logs`);
+      if (res.ok) {
+        const json = await res.json();
+        setAuditLogs(json?.data || json);
+      }
+    } catch (err) {
+      console.error('Failed to fetch audit logs:', err);
+    }
+  };
 
   useEffect(() => {
     if (projectId) {
@@ -443,15 +474,9 @@ export default function ProjectSecretsPage() {
   const activeEnvData = environments.find(e => e.id === activeEnv);
 
   // Mock audit data for selected secret
-  const mockAuditEntries: AuditEntry[] = [
-    { id: '1', action: 'updated value', user: 'Thinh Vo', timestamp: '2 minutes ago' },
-    { id: '2', action: 'read secret (machine)', user: 'gondor-cli', timestamp: '14 minutes ago' },
-    { id: '3', action: 'created secret', user: 'Thinh Vo', timestamp: 'Jan 12, 2026' },
-  ];
-
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center h-full min-h-0">
         <div className="flex flex-col items-center gap-3">
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           <span className="text-sm text-muted-foreground">Loading...</span>
@@ -461,9 +486,9 @@ export default function ProjectSecretsPage() {
   }
 
   return (
-    <div className="flex">
+    <div className="flex h-full">
       {/* Main Content */}
-      <div className="flex-1">
+      <div className={`flex-1 min-w-0 flex flex-col overflow-hidden ${selectedSecret ? 'pr-2' : ''}`}>
         {/* Header */}
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -599,9 +624,9 @@ export default function ProjectSecretsPage() {
             </CardContent>
           </Card>
         ) : (
-          <Card className="border-border bg-card overflow-hidden">
+          <Card className="border-border bg-card overflow-hidden flex-1 flex flex-col min-h-0">
             {/* Table Header */}
-            <div className="grid grid-cols-[28px_2fr_2fr_1fr_1fr_80px] items-center px-4 h-9 border-b border-border bg-muted/50 overflow-hidden">
+            <div className="grid grid-cols-[28px_3fr_2fr_1fr_1fr_80px] items-center px-4 h-9 border-b border-border bg-muted/50 overflow-hidden">
               <div></div>
               <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1 cursor-pointer hover:text-foreground min-w-0">
                 Key
@@ -619,7 +644,7 @@ export default function ProjectSecretsPage() {
               {filteredSecrets.map((secret) => (
                 <div
                   key={secret.id}
-                  className={`grid grid-cols-[28px_2fr_2fr_1fr_1fr_80px] items-center px-4 h-11 cursor-pointer transition-colors hover:bg-muted/50 overflow-hidden ${
+                  className={`grid grid-cols-[28px_3fr_2fr_1fr_1fr_80px] items-center px-4 h-11 cursor-pointer transition-colors hover:bg-muted/50 overflow-hidden ${
                     selectedSecret?.id === secret.id ? 'bg-gold/5 border-l-2 border-l-gold' : ''
                   }`}
                   onClick={() => setSelectedSecret(secret)}
@@ -720,15 +745,16 @@ export default function ProjectSecretsPage() {
 
       {/* Right Panel - Secret Detail */}
       {selectedSecret && (
-        <div className="w-[300px] border-l border-border bg-card flex flex-col h-[calc(100vh-52px)] sticky top-[52px] animate-slideInRight">
+        <div className="w-[300px] border border-border bg-card flex flex-col overflow-hidden animate-slideInRight rounded-lg ml-2">
           {/* Panel Header */}
           <div className="flex items-center justify-between p-4 border-b border-border">
-            <span className="text-sm font-bold text-foreground font-mono-secret">{selectedSecret.key}</span>
+            <span className="text-sm font-bold text-foreground font-mono-secret truncate">{selectedSecret.key}</span>
             <button
               onClick={() => setSelectedSecret(null)}
-              className="p-1 rounded hover:bg-muted text-muted-foreground"
+              className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
+              title="Close"
             >
-              <span className="text-lg leading-none">&times;</span>
+              <X className="h-4 w-4" />
             </button>
           </div>
 
@@ -765,7 +791,7 @@ export default function ProjectSecretsPage() {
                 </div>
                 <div className="flex justify-between py-2 border-b border-border">
                   <span className="text-xs text-muted-foreground">Path</span>
-                  <span className="text-xs font-mono-secret text-foreground">/</span>
+                  <span className="text-xs font-mono-secret text-foreground">/{selectedSecret.folder?.name || ''}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-border">
                   <span className="text-xs text-muted-foreground">Version</span>
@@ -785,7 +811,7 @@ export default function ProjectSecretsPage() {
                 </div>
                 <div className="flex justify-between py-2">
                   <span className="text-xs text-muted-foreground">Updated by</span>
-                  <span className="text-xs text-foreground">Thinh Vo</span>
+                  <span className="text-xs text-foreground">{selectedSecret.updatedBy || selectedSecret.createdBy || 'Unknown'}</span>
                 </div>
               </div>
             </div>
@@ -794,7 +820,7 @@ export default function ProjectSecretsPage() {
             <div className="mb-5">
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Comment</p>
               <div className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 leading-relaxed">
-                Production database password. Rotates every 30 days.
+                {(selectedSecret.metadata?.description as string) || 'No description'}
               </div>
             </div>
 
@@ -802,7 +828,7 @@ export default function ProjectSecretsPage() {
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Audit Trail</p>
               <div className="space-y-3">
-                {mockAuditEntries.map((entry) => (
+                {auditLogs.length > 0 ? auditLogs.map((entry) => (
                   <div key={entry.id} className="flex items-start gap-2.5">
                     <div className="w-1.5 h-1.5 rounded-full bg-success mt-1.5 shrink-0" />
                     <div>
@@ -812,7 +838,9 @@ export default function ProjectSecretsPage() {
                       <p className="text-[10px] text-muted-foreground mt-0.5">{entry.timestamp}</p>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <p className="text-xs text-muted-foreground">No audit history</p>
+                )}
               </div>
             </div>
           </div>
@@ -861,22 +889,14 @@ export default function ProjectSecretsPage() {
           <div className="space-y-1.5">
             <Label htmlFor="value">Value</Label>
             <div className="relative">
-              <Input
+              <textarea
                 id="value"
-                type={showValue ? "text" : "password"}
                 value={secretValue}
                 onChange={(e) => setSecretValue(e.target.value)}
-                placeholder="secret value"
-                className="font-mono h-8 pr-8"
+                placeholder="secret value (supports multiline)"
+                className="font-mono min-h-[80px] w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 required
               />
-              <button
-                type="button"
-                onClick={() => setShowValue(!showValue)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded"
-              >
-                {showValue ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
-              </button>
             </div>
           </div>
           <div className="space-y-1.5">

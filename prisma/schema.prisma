@@ -23,6 +23,8 @@ model User {
   auditLogs     AuditLog[]
   secretVersions SecretVersion[]
   alerts        Alert[]
+  createdSecrets Secret[] @relation("SecretCreatedBy")
+  updatedSecrets Secret[] @relation("SecretUpdatedBy")
 }
 
 // Organization - Team organization
@@ -103,7 +105,9 @@ model Secret {
   projectId   String
   project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdBy   String
+  createdByUser User @relation("SecretCreatedBy", fields: [createdBy], references: [id])
   updatedBy   String?
+  updatedByUser User? @relation("SecretUpdatedBy", fields: [updatedBy], references: [id])
   version     Int       @default(1)
   expiresAt   DateTime? // Expiration date for the secret
   metadata    Json?     // Tags, notes, etc.

@@ -29,6 +29,8 @@ export interface SecretWithDecryptedValue extends Secret {
   folder: Folder;
   environment: EnvironmentInfo;
   project?: ProjectInfo;
+  createdBy: string;
+  updatedBy: string | null;
 }
 
 /**
@@ -58,12 +60,30 @@ export const secretService = {
             slug: true,
           },
         },
+        createdByUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        updatedByUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
       },
       orderBy: { key: 'asc' },
     });
 
-    // Decrypt all secret values
-    return secrets.map((secret) => this.decryptSecret(secret));
+    // Decrypt all secret values and add user info
+    return secrets.map((secret) => ({
+      ...this.decryptSecret(secret),
+      createdBy: secret.createdByUser.name || secret.createdByUser.email,
+      updatedBy: secret.updatedByUser ? (secret.updatedByUser.name || secret.updatedByUser.email) : null,
+    }));
   },
 
   /**
@@ -81,6 +101,20 @@ export const secretService = {
             ownerId: true,
           },
         },
+        createdByUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        updatedByUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
       },
     });
 
@@ -89,6 +123,8 @@ export const secretService = {
     return {
       ...this.decryptSecret(secret),
       project: secret.project,
+      createdBy: secret.createdByUser.name || secret.createdByUser.email,
+      updatedBy: secret.updatedByUser ? (secret.updatedByUser.name || secret.updatedByUser.email) : null,
     };
   },
 

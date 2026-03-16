@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireProjectAccess } from '@/lib/api-auth';
 import { success, handleZodError, error } from '@/lib/api-response';
 import { createSecretSchema, listSecretsQuerySchema } from '@/lib/schemas';
-import { secretService } from '@/lib/services';
+import { secretService, auditService } from '@/lib/services';
 
 /**
  * GET /api/projects/[id]/secrets - List secrets in a project
@@ -44,6 +44,10 @@ export async function POST(
     const data = createSecretSchema.parse(body);
 
     const secret = await secretService.create(data, user.id, projectId);
+
+    // Log the creation
+    await auditService.logSecretCreated(secret.id, secret.key, user.id, projectId);
+
     return success(secret, 201);
   } catch (err) {
     console.error('Create secret error:', err);

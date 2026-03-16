@@ -101,22 +101,28 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Sidebar
-        user={user}
-        collapsed={false}
-        organizationSlug={currentOrgSlug}
-        unreadAlerts={unreadAlerts}
-      />
-      <Header
-        user={user}
-        sidebarCollapsed={false}
-        organizationSlug={currentOrgSlug}
-        unreadAlerts={unreadAlerts}
-      />
-      <main className="pt-[52px] pl-[220px]">
-        <div className="p-6">{children}</div>
-      </main>
+    <div className="h-screen bg-background overflow-hidden">
+      <div className="flex h-full">
+        <div className="flex flex-col border-r border-border">
+          <Sidebar
+            user={user}
+            collapsed={false}
+            organizationSlug={currentOrgSlug}
+            unreadAlerts={unreadAlerts}
+          />
+        </div>
+        <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+          <Header
+            user={user}
+            sidebarCollapsed={false}
+            organizationSlug={currentOrgSlug}
+            unreadAlerts={unreadAlerts}
+          />
+          <main className="flex-1 overflow-hidden">
+            <div className="h-full overflow-y-auto p-6">{children}</div>
+          </main>
+        </div>
+      </div>
     </div>
   );
 }

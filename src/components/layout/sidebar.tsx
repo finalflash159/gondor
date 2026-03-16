@@ -87,7 +87,7 @@ function SidebarComponent({ user, collapsed = false, organizationSlug, unreadAle
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 z-30 flex h-screen flex-col border-r border-border bg-card transition-colors duration-200',
+        'flex flex-col border-r border-border bg-card transition-colors duration-200 h-full',
         collapsed ? 'w-14' : 'w-[220px]'
       )}
     >

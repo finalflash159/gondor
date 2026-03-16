@@ -175,4 +175,29 @@ export const auditService = {
 
     return { logs, total };
   },
+
+  /**
+   * Get audit logs for a specific secret
+   */
+  async getSecretLogs(secretId: string, options: { limit?: number } = {}) {
+    const { limit = 10 } = options;
+
+    return db.auditLog.findMany({
+      where: {
+        targetType: 'secret',
+        targetId: secretId,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+  },
 };

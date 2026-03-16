@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server';
-import { requireProjectAccess } from '@/lib/api-auth';
+import { requireProjectAccess, requireAuth } from '@/lib/api-auth';
 import { success, handleZodError, error, notFound } from '@/lib/api-response';
 import { updateSecretSchema } from '@/lib/schemas';
-import { secretService } from '@/lib/services';
+import { secretService, auditService } from '@/lib/services';
 
 /**
  * GET /api/secrets/[id] - Get a single secret
@@ -23,7 +23,10 @@ export async function GET(
     }
 
     // Check access to the project
-    await requireProjectAccess(secret.projectId, 'secret:read');
+    const { user } = await requireProjectAccess(secret.projectId, 'secret:read');
+
+    // Log the view action
+    await auditService.logSecretViewed(id, secret.key, user.id, secret.projectId);
 
     return success(secret);
   } catch (err) {
@@ -48,12 +51,16 @@ export async function PUT(
     }
 
     // Check write access
-    await requireProjectAccess(existingSecret.projectId, 'secret:write');
+    const { user } = await requireProjectAccess(existingSecret.projectId, 'secret:write');
 
     const body = await req.json();
     const data = updateSecretSchema.parse(body);
 
-    const secret = await secretService.update(id, data, existingSecret.projectId);
+    const secret = await secretService.update(id, data, user.id);
+
+    // Log the update
+    await auditService.logSecretUpdated(id, secret.key, user.id, secret.projectId);
+
     return success(secret);
   } catch (err) {
     console.error('Update secret error:', err);
@@ -82,9 +89,13 @@ export async function DELETE(
     }
 
     // Check delete access
-    await requireProjectAccess(existingSecret.projectId, 'secret:delete');
+    const { user } = await requireProjectAccess(existingSecret.projectId, 'secret:delete');
 
     await secretService.delete(id, existingSecret.projectId);
+
+    // Log the deletion
+    await auditService.logSecretDeleted(id, existingSecret.key, user.id, existingSecret.projectId);
+
     return success({ success: true });
   } catch (err) {
     console.error('Delete secret error:', err);
