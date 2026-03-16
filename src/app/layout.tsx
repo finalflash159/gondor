@@ -30,7 +30,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning data-theme="dark">
       <head>
-        <link rel="icon" href="/favicon_io/favicon.svg" type="image/svg+xml" sizes="32x32" />
+        <link rel="icon" href="/gondor-logo.ico" type="image/x-icon" media="(prefers-color-scheme: light)" />
+        <link rel="icon" href="/gondor-logo-white.ico" type="image/x-icon" media="(prefers-color-scheme: dark)" />
         <link rel="apple-touch-icon" href="/favicon_io/apple-touch-icon.png" />
         <script
           dangerouslySetInnerHTML={{
