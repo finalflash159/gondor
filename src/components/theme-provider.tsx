@@ -40,6 +40,9 @@ export function ThemeProvider({ children, defaultTheme = 'dark' }: ThemeProvider
     const initialTheme = getInitialTheme();
     setThemeState(initialTheme);
     document.documentElement.setAttribute('data-theme', initialTheme);
+    if (initialTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    }
     setMounted(true);
   }, []);
 
@@ -47,6 +50,11 @@ export function ThemeProvider({ children, defaultTheme = 'dark' }: ThemeProvider
     setThemeState(newTheme);
     localStorage.setItem('theme', newTheme);
     document.documentElement.setAttribute('data-theme', newTheme);
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
   };
 
   const toggleTheme = () => {

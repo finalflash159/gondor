@@ -2,11 +2,11 @@
 
 import { memo, useMemo, useCallback } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { Logo } from '@/components/logo';
 import { Settings, Users, LogOut, Key, RefreshCw, FolderOpen, Plug, Shield, FileText, Bell, CreditCard } from 'lucide-react';
 
 interface UserData {
@@ -87,7 +87,7 @@ function SidebarComponent({ user, collapsed = false, organizationSlug, unreadAle
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 z-30 flex h-screen flex-col border-r border-border bg-card',
+        'fixed left-0 top-0 z-30 flex h-screen flex-col border-r border-border bg-card transition-colors duration-200',
         collapsed ? 'w-14' : 'w-[220px]'
       )}
     >
@@ -95,14 +95,8 @@ function SidebarComponent({ user, collapsed = false, organizationSlug, unreadAle
       <div className="border-b border-border">
         {/* Logo & Brand */}
         <div className="flex items-center gap-3 px-4 py-4">
-          <Image
-            src="/favicon_io/android-chrome-512x512.png"
-            alt="Gondor"
-            width={36}
-            height={36}
-            className="rounded-lg"
-          />
-          <span className="text-xl font-extrabold tracking-tight text-foreground">Gondor</span>
+          <Logo width={32} height={32} />
+          <span className="text-lg font-extrabold tracking-tight text-foreground">Gondor</span>
         </div>
 
       </div>

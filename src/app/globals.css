@@ -6,6 +6,49 @@
    GONDOR DESIGN SYSTEM - Light & Dark Theme
    ============================================ */
 
+/* Smooth theme transitions - comprehensive coverage */
+html {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+body {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+[data-theme] {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Force transitions on common elements */
+header,
+aside,
+main,
+.bg-card,
+.bg-surface,
+.bg-background,
+.bg-muted,
+.bg-primary,
+.text-foreground,
+.text-muted-foreground,
+.border,
+.border-border {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease !important;
+}
+
+/* Images need fade transition */
+img,
+.Image,
+[class*="object-contain"] {
+  transition: opacity 150ms ease;
+}
+
+/* Disable transitions for animations */
+.animate-spin,
+.animate-pulse,
+.animate-bounce {
+  transition: none !important;
+}
+
 :root {
   /* ─── Base Colors ─── */
   --color-background: #fafaf8;

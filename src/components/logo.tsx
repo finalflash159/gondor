@@ -14,14 +14,14 @@ export function Logo({ className = '', width = 120, height = 40 }: LogoProps) {
         src="/gondor-logo-white.png"
         alt="Gondor"
         fill
-        className="object-contain dark:hidden"
+        className="object-contain hidden dark:block transition-opacity duration-200"
         priority
       />
       <Image
         src="/gondor-logo.png"
         alt="Gondor"
         fill
-        className="object-contain hidden dark:block"
+        className="object-contain dark:hidden transition-opacity duration-200"
         priority
       />
     </Link>

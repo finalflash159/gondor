@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardTitle } from '@/components/ui/card';
@@ -10,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Modal } from '@/components/ui/modal';
 import { Badge } from '@/components/ui/badge';
+import { ArrowLeft, Folder, Key, Server, Plus, ArrowRight } from 'lucide-react';
 
 interface Project {
   id: string;
@@ -111,20 +111,10 @@ export default function OrganizationProjectsPage() {
 
   if (loading) {
     return (
-      <div>
-        <div className="mb-4">
-          <div className="h-5 w-24 bg-muted rounded animate-pulse mb-2" />
-          <div className="h-8 w-48 bg-muted rounded animate-pulse" />
-        </div>
-        <div className="grid gap-2.5 md:grid-cols-3 mb-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-20 bg-card rounded-lg border border-border p-3 animate-pulse" />
-          ))}
-        </div>
-        <div className="grid gap-2.5 md:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-28 bg-card rounded-lg border border-border p-4 animate-pulse" />
-          ))}
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <span className="text-sm text-muted-foreground">Loading...</span>
         </div>
       </div>
     );
@@ -146,7 +136,7 @@ export default function OrganizationProjectsPage() {
           href="/organizations"
           className="inline-flex items-center text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
-          <Image src="/icons/arrow-left.svg" alt="Back" width={14} height={14} className="mr-1" />
+          <ArrowLeft className="mr-1 h-3.5 w-3.5" />
           Back
         </Link>
       </div>
@@ -155,7 +145,7 @@ export default function OrganizationProjectsPage() {
       <div className="mb-4 flex items-start justify-between">
         <div className="flex items-center gap-2.5">
           <div className="flex h-9 w-9 items-center justify-center rounded-md bg-surface">
-            <Image src="/icons/folder.svg" alt="Folder" width={16} height={16} className="text-muted-foreground" />
+            <Folder className="h-4 w-4 text-muted-foreground" />
           </div>
           <div>
             <h1 className="text-lg font-bold text-foreground">{organization.name}</h1>
@@ -163,7 +153,7 @@ export default function OrganizationProjectsPage() {
           </div>
         </div>
         <Button onClick={() => setShowCreateModal(true)} size="sm">
-          <Image src="/icons/plus.svg" alt="Plus" width={14} height={14} className="mr-1.5" />
+          <Plus className="h-4 w-4 mr-1.5" />
           New Project
         </Button>
       </div>
@@ -177,7 +167,7 @@ export default function OrganizationProjectsPage() {
               <p className="text-xl font-extrabold text-foreground">{organization.projects.length}</p>
             </div>
             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-surface">
-              <Image src="/icons/folder.svg" alt="Folder" width={16} height={16} className="text-muted-foreground" />
+              <Folder className="h-4 w-4 text-muted-foreground" />
             </div>
           </div>
         </div>
@@ -189,7 +179,7 @@ export default function OrganizationProjectsPage() {
               <p className="text-xl font-extrabold text-foreground">{totalSecrets}</p>
             </div>
             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-surface">
-              <Image src="/icons/key.svg" alt="Key" width={16} height={16} className="text-muted-foreground" />
+              <Key className="h-4 w-4 text-muted-foreground" />
             </div>
           </div>
         </div>
@@ -201,7 +191,7 @@ export default function OrganizationProjectsPage() {
               <p className="text-xl font-extrabold text-foreground">{totalEnvs}</p>
             </div>
             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-surface">
-              <Image src="/icons/server.svg" alt="Server" width={16} height={16} className="text-muted-foreground" />
+              <Server className="h-4 w-4 text-muted-foreground" />
             </div>
           </div>
         </div>
@@ -212,14 +202,14 @@ export default function OrganizationProjectsPage() {
         <Card className="border-dashed border-2 border-border bg-card/50">
           <CardContent className="flex flex-col items-center justify-center py-10">
             <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-surface">
-              <Image src="/icons/folder.svg" alt="Folder" width={20} height={20} className="text-muted-foreground" />
+              <Folder className="h-5 w-5 text-muted-foreground" />
             </div>
             <h3 className="text-sm font-semibold text-foreground">No projects</h3>
             <p className="mt-1 text-center text-xs text-muted-foreground max-w-xs">
               Create your first project to manage secrets
             </p>
             <Button className="mt-3" size="sm" onClick={() => setShowCreateModal(true)}>
-              <Image src="/icons/plus.svg" alt="Plus" width={14} height={14} className="mr-1.5" />
+              <Plus className="h-4 w-4 mr-1.5" />
               Create Project
             </Button>
           </CardContent>
@@ -232,9 +222,9 @@ export default function OrganizationProjectsPage() {
                 <CardContent className="p-3">
                   <div className="flex items-start justify-between">
                     <div className="flex h-8 w-8 items-center justify-center rounded-md bg-surface">
-                      <Image src="/icons/key.svg" alt="Key" width={16} height={16} className="text-muted-foreground" />
+                      <Key className="h-4 w-4 text-muted-foreground" />
                     </div>
-                    <Image src="/icons/arrow-right.svg" alt="Arrow" width={14} height={14} className="text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                   </div>
                   <div className="mt-2.5">
                     <CardTitle className="text-sm text-foreground">{project.name}</CardTitle>
@@ -252,11 +242,11 @@ export default function OrganizationProjectsPage() {
 
                   <div className="mt-2.5 pt-2.5 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
-                      <Image src="/icons/server.svg" alt="Server" width={12} height={12} />
+                      <Server className="h-3 w-3" />
                       {project.environments.length}
                     </span>
                     <span className="flex items-center gap-1">
-                      <Image src="/icons/key.svg" alt="Key" width={12} height={12} />
+                      <Key className="h-3 w-3" />
                       {project._count.secrets}
                     </span>
                   </div>

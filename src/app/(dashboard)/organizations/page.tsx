@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Modal } from '@/components/ui/modal';
 import { Avatar } from '@/components/ui/avatar';
+import { Plus, LayoutGrid, Folder, Users, Building2, ArrowRight } from 'lucide-react';
 
 interface Organization {
   id: string;
@@ -95,20 +95,10 @@ export default function OrganizationsPage() {
 
   if (loading) {
     return (
-      <div>
-        <div className="mb-6">
-          <div className="h-8 w-40 bg-muted rounded animate-pulse mb-2" />
-          <div className="h-4 w-56 bg-muted rounded animate-pulse" />
-        </div>
-        <div className="grid gap-3 md:grid-cols-3 mb-6">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-20 bg-card rounded-lg border border-border p-4 animate-pulse" />
-          ))}
-        </div>
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-28 bg-card rounded-lg border border-border p-4 animate-pulse" />
-          ))}
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <span className="text-sm text-muted-foreground">Loading...</span>
         </div>
       </div>
     );
@@ -124,7 +114,7 @@ export default function OrganizationsPage() {
             <p className="text-sm text-muted-foreground mt-0.5">Manage your teams and projects</p>
           </div>
           <Button onClick={() => setShowCreateModal(true)} size="sm">
-            <Image src="/icons/plus.svg" alt="Plus" width={14} height={14} className="mr-1.5" />
+            <Plus className="h-4 w-4 mr-1.5" />
             New Organization
           </Button>
         </div>
@@ -139,7 +129,7 @@ export default function OrganizationsPage() {
               <p className="text-2xl font-extrabold text-foreground mt-0.5">{organizations.length}</p>
             </div>
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
-              <Image src="/icons/layout-grid.svg" alt="Grid" width={16} height={16} className="text-muted-foreground" />
+              <LayoutGrid className="h-4 w-4 text-muted-foreground" />
             </div>
           </div>
         </div>
@@ -151,7 +141,7 @@ export default function OrganizationsPage() {
               <p className="text-2xl font-extrabold text-foreground mt-0.5">{totalProjects}</p>
             </div>
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
-              <Image src="/icons/folder.svg" alt="Folder" width={16} height={16} className="text-muted-foreground" />
+              <Folder className="h-4 w-4 text-muted-foreground" />
             </div>
           </div>
         </div>
@@ -163,7 +153,7 @@ export default function OrganizationsPage() {
               <p className="text-2xl font-extrabold text-foreground mt-0.5">{totalMembers}</p>
             </div>
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
-              <Image src="/icons/users.svg" alt="Users" width={16} height={16} className="text-muted-foreground" />
+              <Users className="h-4 w-4 text-muted-foreground" />
             </div>
           </div>
         </div>
@@ -173,14 +163,14 @@ export default function OrganizationsPage() {
         <Card className="border-dashed border-2 border-border bg-card/50">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-muted">
-              <Image src="/icons/building.svg" alt="Building" width={24} height={24} className="text-muted-foreground" />
+              <Building2 className="h-6 w-6 text-muted-foreground" />
             </div>
             <h3 className="text-sm font-semibold text-foreground">No organizations</h3>
             <p className="mt-1 text-center text-xs text-muted-foreground max-w-xs">
               Create your first organization to get started
             </p>
             <Button className="mt-4" size="sm" onClick={() => setShowCreateModal(true)}>
-              <Image src="/icons/plus.svg" alt="Plus" width={14} height={14} className="mr-1.5" />
+              <Plus className="h-4 w-4 mr-1.5" />
               Create Organization
             </Button>
           </CardContent>
@@ -193,18 +183,18 @@ export default function OrganizationsPage() {
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-3">
                     <Avatar src={org.avatar || undefined} fallback={org.name.charAt(0).toUpperCase()} size="md" />
-                    <Image src="/icons/arrow-right.svg" alt="Arrow" width={14} height={14} className="text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                    <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                   </div>
                   <h3 className="text-sm font-semibold text-foreground">{org.name}</h3>
                   <p className="text-xs text-muted-foreground">/{org.slug}</p>
 
                   <div className="mt-3 pt-3 border-t border-border flex items-center gap-3 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
-                      <Image src="/icons/folder.svg" alt="Folder" width={12} height={12} />
+                      <Folder className="h-3 w-3" />
                       {org._count.projects}
                     </span>
                     <span className="flex items-center gap-1">
-                      <Image src="/icons/users.svg" alt="Users" width={12} height={12} />
+                      <Users className="h-3 w-3" />
                       {org._count.members}
                     </span>
                   </div>

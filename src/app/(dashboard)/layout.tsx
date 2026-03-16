@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useEffect, useState, useRef } from 'react';
+import { ReactNode, useEffect, useState, useRef, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useSession } from '@/components/session-provider';
 import { Sidebar } from '@/components/layout/sidebar';
@@ -18,9 +18,39 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isNavigating, setIsNavigating] = useState(false);
   const prevPathRef = useRef(pathname);
 
-  // Extract org slug from pathname
-  const segments = pathname.split('/').filter(Boolean);
-  const currentOrgSlug = segments[1] || null;
+  // Extract org slug from pathname - use useMemo to ensure consistency
+  const currentOrgSlug = useMemo(() => {
+    const segments = pathname.split('/').filter(Boolean);
+
+    // Known pages under /organizations that DON'T have org slug
+    const knownStandalonePages = [
+      'dynamic-secrets',
+      'secret-rotation',
+      'integrations',
+      'folders',
+      'access-control',
+      'audit-logs',
+      'alerts',
+      'billing',
+      'members',
+      'settings',
+    ];
+
+    // Check if this is a valid org page
+    // /organizations/codelux → orgSlug = codelux
+    // /organizations/codelux/folders → orgSlug = codelux
+    // /organizations/folders → orgSlug = null (should redirect)
+    if (segments[0] === 'organizations' && segments[1]) {
+      const isStandalonePage = knownStandalonePages.includes(segments[1]);
+      const hasPage = segments[2];
+
+      if (isStandalonePage && !hasPage) {
+        return null;
+      }
+      return segments[1];
+    }
+    return null;
+  }, [pathname]);
 
   // Detect navigation to show skeleton
   useEffect(() => {

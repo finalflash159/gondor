@@ -451,9 +451,11 @@ export default function ProjectSecretsPage() {
 
   if (loading) {
     return (
-      <div>
-        <div className="h-7 w-28 bg-muted rounded animate-pulse mb-4" />
-        <div className="h-56 bg-card rounded-lg border border-border animate-pulse" />
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <span className="text-sm text-muted-foreground">Loading...</span>
+        </div>
       </div>
     );
   }
@@ -599,14 +601,14 @@ export default function ProjectSecretsPage() {
         ) : (
           <Card className="border-border bg-card overflow-hidden">
             {/* Table Header */}
-            <div className="grid grid-cols-[28px_2fr_2fr_1fr_1fr_80px] items-center px-4 h-9 border-b border-border bg-muted/50">
+            <div className="grid grid-cols-[28px_2fr_2fr_1fr_1fr_80px] items-center px-4 h-9 border-b border-border bg-muted/50 overflow-hidden">
               <div></div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1 cursor-pointer hover:text-foreground">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1 cursor-pointer hover:text-foreground min-w-0">
                 Key
               </div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Value</div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Environment</div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1 cursor-pointer hover:text-foreground">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground min-w-0">Value</div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground shrink-0">Environment</div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1 cursor-pointer hover:text-foreground shrink-0">
                 Updated
               </div>
               <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-right">Actions</div>
@@ -617,65 +619,67 @@ export default function ProjectSecretsPage() {
               {filteredSecrets.map((secret) => (
                 <div
                   key={secret.id}
-                  className={`grid grid-cols-[28px_2fr_2fr_1fr_1fr_80px] items-center px-4 h-11 cursor-pointer transition-colors hover:bg-muted/50 ${
+                  className={`grid grid-cols-[28px_2fr_2fr_1fr_1fr_80px] items-center px-4 h-11 cursor-pointer transition-colors hover:bg-muted/50 overflow-hidden ${
                     selectedSecret?.id === secret.id ? 'bg-gold/5 border-l-2 border-l-gold' : ''
                   }`}
                   onClick={() => setSelectedSecret(secret)}
                 >
                   {/* Checkbox */}
-                  <div className={`w-4 h-4 rounded border ${selectedSecret?.id === secret.id ? 'bg-primary border-primary' : 'border-border'}`}>
+                  <div className={`w-4 h-4 rounded border shrink-0 ${selectedSecret?.id === secret.id ? 'bg-primary border-primary' : 'border-border'}`}>
                     {selectedSecret?.id === secret.id && (
                       <Check className="h-3 w-3 text-primary-foreground" />
                     )}
                   </div>
 
                   {/* Key */}
-                  <div className="flex items-center gap-2 font-mono-secret text-foreground">
+                  <div className="flex items-center gap-2 font-mono-secret text-foreground min-w-0">
                     <Key className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                     <span className="truncate">{secret.key}</span>
                   </div>
 
                   {/* Value */}
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono-secret text-muted-foreground truncate">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-mono-secret text-muted-foreground truncate min-w-0">
                       {visibleSecrets.has(secret.id) ? secret.value : '••••••••••••••••••••'}
                     </span>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); toggleSecretVisibility(secret.id); }}
-                      className="p-1 rounded hover:bg-muted shrink-0"
-                    >
-                      {visibleSecrets.has(secret.id) ? (
-                        <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
-                      ) : (
-                        <Eye className="h-3.5 w-3.5 text-muted-foreground" />
-                      )}
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); copyToClipboard(secret); }}
-                      className="p-1 rounded hover:bg-muted shrink-0"
-                    >
-                      {copiedSecret === secret.id ? (
-                        <Check className="h-3.5 w-3.5 text-success" />
-                      ) : (
-                        <Copy className="h-3.5 w-3.5 text-muted-foreground" />
-                      )}
-                    </button>
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleSecretVisibility(secret.id); }}
+                        className="p-1 rounded hover:bg-muted"
+                      >
+                        {visibleSecrets.has(secret.id) ? (
+                          <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                        ) : (
+                          <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                        )}
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); copyToClipboard(secret); }}
+                        className="p-1 rounded hover:bg-muted"
+                      >
+                        {copiedSecret === secret.id ? (
+                          <Check className="h-3.5 w-3.5 text-success" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   {/* Environment */}
-                  <div>
+                  <div className="shrink-0">
                     <Badge variant={getEnvBadgeVariant(secret.environment?.slug || 'prod')}>
                       {secret.environment?.name || 'prod'}
                     </Badge>
                   </div>
 
                   {/* Updated */}
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-xs text-muted-foreground shrink-0">
                     {new Date(secret.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center justify-end gap-1">
+                  <div className="flex items-center justify-end gap-1 shrink-0">
                     <button
                       onClick={(e) => { e.stopPropagation(); handleRotateSecret(secret.id); }}
                       className="p-1.5 rounded hover:bg-muted"

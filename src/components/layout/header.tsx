@@ -149,7 +149,7 @@ function HeaderComponent({ user, sidebarCollapsed = false, organizationSlug, unr
     <>
       <header
         className={cn(
-          'fixed top-0 right-0 z-20 h-[52px] border-b border-border bg-card flex items-center justify-between px-6 transition-all duration-300',
+          'fixed top-0 right-0 z-20 h-[52px] border-b border-border bg-card flex items-center justify-between px-6 transition-colors duration-200',
           sidebarCollapsed ? 'left-14' : 'left-[220px]'
         )}
       >

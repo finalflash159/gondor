@@ -18,8 +18,8 @@ export async function GET(
 
     const { searchParams } = new URL(req.url);
     const query = listSecretsQuerySchema.parse({
-      envId: searchParams.get('envId'),
-      folderId: searchParams.get('folderId'),
+      envId: searchParams.get('envId') || undefined,
+      folderId: searchParams.get('folderId') || undefined,
     });
 
     const secrets = await secretService.getSecrets(projectId, query);

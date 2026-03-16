@@ -18,7 +18,7 @@ export async function GET(
 
     const { searchParams } = new URL(req.url);
     const query = listFoldersQuerySchema.parse({
-      envId: searchParams.get('envId'),
+      envId: searchParams.get('envId') || undefined,
     });
 
     const folders = await folderService.getFolders(projectId, query);
