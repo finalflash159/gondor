@@ -1,54 +1,24 @@
-import { useState, useEffect, useCallback } from 'react';
+'use client';
+
+import { useQuery } from '@tanstack/react-query';
 
 interface Project {
   id: string;
   name: string;
 }
 
-interface UseProjectsOptions {
-  autoFetch?: boolean;
+async function fetchProjects(organizationSlug: string): Promise<Project[]> {
+  const res = await fetch(`/api/organizations/${organizationSlug}`);
+  if (!res.ok) throw new Error('Failed to fetch projects');
+  const json = await res.json();
+  return json?.data?.projects || [];
 }
 
-export function useProjects(organizationSlug: string, options: UseProjectsOptions = {}) {
-  const { autoFetch = true } = options;
-
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchProjects = useCallback(async () => {
-    if (!organizationSlug) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const res = await fetch(`/api/organizations/${organizationSlug}`);
-      if (res.ok) {
-        const json = await res.json();
-        const data = json?.data ?? json;
-        setProjects(data?.projects || []);
-      } else {
-        setError('Failed to fetch projects');
-      }
-    } catch (err) {
-      console.error('Failed to fetch projects:', err);
-      setError('Failed to fetch projects');
-    } finally {
-      setLoading(false);
-    }
-  }, [organizationSlug]);
-
-  useEffect(() => {
-    if (autoFetch && organizationSlug) {
-      fetchProjects();
-    }
-  }, [autoFetch, organizationSlug, fetchProjects]);
-
-  return {
-    projects,
-    loading,
-    error,
-    refetch: fetchProjects,
-  };
+export function useProjects(organizationSlug: string, autoFetch = true) {
+  return useQuery({
+    queryKey: ['projects', organizationSlug],
+    queryFn: () => fetchProjects(organizationSlug),
+    enabled: autoFetch && !!organizationSlug,
+    staleTime: 60 * 1000, // 1 minute
+  });
 }

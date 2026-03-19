@@ -65,6 +65,7 @@ model Project {
   updatedAt      DateTime @updatedAt
 
   @@unique([orgId, slug])
+  @@index([orgId])
 }
 
 // ProjectEnvironment - Environment (dev, staging, production)
@@ -99,6 +100,7 @@ model Folder {
   updatedAt    DateTime @updatedAt
 
   @@unique([projectId, envId, parentId, name])
+  @@index([projectId, envId])
 }
 
 // Secret - Actual secret (encrypted)
@@ -124,6 +126,9 @@ model Secret {
   versions    SecretVersion[]
 
   @@unique([projectId, envId, folderId, key])
+  @@index([projectId])
+  @@index([projectId, envId])
+  @@index([expiresAt])
 }
 
 // SecretVersion - Version history of secret
@@ -136,6 +141,7 @@ model SecretVersion {
   createdBy String
   user      User     @relation(fields: [createdBy], references: [id])
   createdAt DateTime @default(now())
+  @@index([secretId])
 }
 
 // DynamicSecret - Dynamically generated credentials
@@ -164,6 +170,7 @@ model DynamicSecret {
   rotationLogs RotationLog[]
 
   @@unique([projectId, envId, name])
+  @@index([projectId, envId])
 }
 
 // DynamicSecretCredential - Generated credentials (retrieved on demand)
@@ -194,6 +201,7 @@ model RotationJob {
   rotationLogs    RotationLog[]
 
   @@unique([dynamicSecretId])
+  @@index([isActive, nextRunAt])
 }
 
 // RotationLog - Rotation history
@@ -228,6 +236,7 @@ model AuditLog {
   createdAt  DateTime @default(now())
 
   @@index([projectId, createdAt])
+  @@index([targetId])
 }
 
 // ProjectMember - Project member with role
@@ -242,6 +251,8 @@ model ProjectMember {
   createdAt DateTime @default(now())
 
   @@unique([userId, projectId])
+  @@index([projectId])
+  @@index([userId])
 }
 
 // Role - Role with permissions
@@ -256,6 +267,7 @@ model Role {
   members     ProjectMember[]
 
   @@unique([projectId, slug])
+  @@index([projectId])
 }
 
 // OrgMember - Organization member
@@ -313,6 +325,7 @@ model InvitationUse {
   usedAt        DateTime      @default(now())
 
   @@unique([invitationId, userId])
+  @@index([invitationId])
 }
 
 // Alert - User notifications and alerts
@@ -371,6 +384,8 @@ model IntegrationSync {
   secretsCount    Int      @default(0)
   errorMessage    String?
   createdAt       DateTime @default(now())
+
+  @@index([integrationId, createdAt])
 }
 
 enum AlertType {

@@ -613,8 +613,8 @@ Available permissions for roles:
 - Route Handler: `src/app/api/projects/[id]/members/route.ts`
 - Route Handler: `src/app/api/projects/[id]/roles/route.ts`
 - Route Handler: `src/app/api/projects/[id]/audit-logs/route.ts`
-- Service: `src/lib/services/project.service.ts`
-- Service: `src/lib/services/environment.service.ts`
+- Service: `src/backend/services/project.service.ts`
+- Service: `src/backend/services/environment.service.ts`
 - Service: `src/lib/services/member.service.ts`
 
 ### Related Database Models

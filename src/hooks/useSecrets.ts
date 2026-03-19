@@ -1,4 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+'use client';
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface Secret {
   id: string;
@@ -23,97 +25,112 @@ interface Pagination {
   totalPages: number;
 }
 
-interface UseSecretsOptions {
-  autoFetch?: boolean;
-  page?: number;
-  limit?: number;
+interface SecretsResponse {
+  data: Secret[];
+  pagination: Pagination;
 }
 
-export function useSecrets(projectId: string, envId: string, options: UseSecretsOptions = {}) {
-  const { autoFetch = true, page = 1, limit = 50 } = options;
+async function fetchSecrets(
+  projectId: string,
+  envId: string,
+  page: number,
+  limit: number
+): Promise<SecretsResponse> {
+  const res = await fetch(
+    `/api/projects/${projectId}/secrets?envId=${envId}&page=${page}&limit=${limit}`
+  );
+  if (!res.ok) throw new Error('Failed to fetch secrets');
+  const json = await res.json();
+  return json?.data ?? json;
+}
 
-  const [secrets, setSecrets] = useState<Secret[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [pagination, setPagination] = useState<Pagination | null>(null);
+export function useSecrets(
+  projectId: string,
+  envId: string,
+  page = 1,
+  limit = 50,
+  autoFetch = true
+) {
+  const queryClient = useQueryClient();
 
-  const fetchSecrets = useCallback(async (pageNum: number = page) => {
-    if (!projectId || !envId) {
-      setSecrets([]);
-      return;
-    }
+  const query = useQuery({
+    queryKey: ['secrets', projectId, envId, page, limit],
+    queryFn: () => fetchSecrets(projectId, envId, page, limit),
+    enabled: autoFetch && !!projectId && !!envId,
+    staleTime: 30 * 1000, // 30 seconds
+  });
 
-    setLoading(true);
-    setError(null);
+  const createMutation = useMutation({
+    mutationFn: async ({
+      key,
+      value,
+      folderId,
+    }: {
+      key: string;
+      value: string;
+      folderId?: string;
+    }) => {
+      const res = await fetch(`/api/projects/${projectId}/secrets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, value, envId, folderId }),
+      });
+      if (!res.ok) throw new Error('Failed to create secret');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['secrets', projectId, envId] });
+    },
+  });
 
-    try {
-      const res = await fetch(
-        `/api/projects/${projectId}/secrets?envId=${envId}&page=${pageNum}&limit=${limit}`
-      );
-      if (res.ok) {
-        const json = await res.json();
-        const data = json?.data ?? json;
-        setSecrets(data?.data || []);
-        setPagination(data?.pagination || null);
-      } else {
-        setError('Failed to fetch secrets');
-      }
-    } catch (err) {
-      console.error('Failed to fetch secrets:', err);
-      setError('Failed to fetch secrets');
-    } finally {
-      setLoading(false);
-    }
-  }, [projectId, envId, limit, page]);
+  const updateMutation = useMutation({
+    mutationFn: async ({
+      secretId,
+      key,
+      value,
+    }: {
+      secretId: string;
+      key: string;
+      value: string;
+    }) => {
+      const res = await fetch(`/api/secrets/${secretId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, value }),
+      });
+      if (!res.ok) throw new Error('Failed to update secret');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['secrets', projectId, envId] });
+    },
+  });
 
-  useEffect(() => {
-    if (autoFetch && projectId && envId) {
-      fetchSecrets(page);
-    }
-  }, [autoFetch, projectId, envId, page, fetchSecrets]);
-
-  const createSecret = useCallback(async (key: string, value: string, folderId?: string) => {
-    const res = await fetch(`/api/projects/${projectId}/secrets`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key, value, envId, folderId }),
-    });
-    if (res.ok) {
-      fetchSecrets();
-    }
-    return res;
-  }, [projectId, envId, fetchSecrets]);
-
-  const updateSecret = useCallback(async (secretId: string, key: string, value: string) => {
-    const res = await fetch(`/api/secrets/${secretId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key, value }),
-    });
-    if (res.ok) {
-      fetchSecrets();
-    }
-    return res;
-  }, [fetchSecrets]);
-
-  const deleteSecret = useCallback(async (secretId: string) => {
-    const res = await fetch(`/api/secrets/${secretId}`, {
-      method: 'DELETE',
-    });
-    if (res.ok) {
-      fetchSecrets();
-    }
-    return res;
-  }, [fetchSecrets]);
+  const deleteMutation = useMutation({
+    mutationFn: async (secretId: string) => {
+      const res = await fetch(`/api/secrets/${secretId}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error('Failed to delete secret');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['secrets', projectId, envId] });
+    },
+  });
 
   return {
-    secrets,
-    loading,
-    error,
-    pagination,
-    refetch: fetchSecrets,
-    createSecret,
-    updateSecret,
-    deleteSecret,
+    secrets: query.data?.data ?? [],
+    pagination: query.data?.pagination ?? null,
+    loading: query.isLoading,
+    error: query.error?.message ?? null,
+    isFetching: query.isFetching,
+    refetch: query.refetch,
+    createSecret: createMutation.mutateAsync,
+    updateSecret: updateMutation.mutateAsync,
+    deleteSecret: deleteMutation.mutateAsync,
+    isCreating: createMutation.isPending,
+    isUpdating: updateMutation.isPending,
+    isDeleting: deleteMutation.isPending,
   };
 }
