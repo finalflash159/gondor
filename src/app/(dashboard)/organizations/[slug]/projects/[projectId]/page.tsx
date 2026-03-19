@@ -891,16 +891,17 @@ export default function ProjectSecretsPage() {
                       const expDate = new Date(selectedSecret.expiresAt);
                       const now = new Date();
                       const daysLeft = Math.ceil((expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                      const dateStr = expDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                       if (daysLeft < 0) {
                         return <span className="font-semibold text-danger">Expired</span>;
                       } else if (daysLeft === 0) {
                         return <span className="font-semibold text-danger">Today</span>;
                       } else if (daysLeft <= 7) {
-                        return <span className="font-semibold text-danger">{daysLeft} days left</span>;
+                        return <span className="font-semibold text-danger">{daysLeft}d left · {dateStr}</span>;
                       } else if (daysLeft <= 30) {
-                        return <span className="text-warning">{daysLeft} days left</span>;
+                        return <span className="text-warning">{daysLeft}d left · {dateStr}</span>;
                       } else {
-                        return <span className="text-foreground">{expDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>;
+                        return <span className="text-foreground">{dateStr}</span>;
                       }
                     })() : (
                       <span className="text-muted-foreground">Never</span>
