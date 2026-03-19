@@ -1,4 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+'use client';
+
+import { useQuery } from '@tanstack/react-query';
 
 interface Organization {
   id: string;
@@ -6,50 +8,18 @@ interface Organization {
   slug: string;
 }
 
-interface UseOrganizationOptions {
-  autoFetch?: boolean;
+async function fetchOrganization(slug: string): Promise<Organization> {
+  const res = await fetch(`/api/organizations/${slug}`);
+  if (!res.ok) throw new Error('Failed to fetch organization');
+  const json = await res.json();
+  return json?.data ?? json;
 }
 
-export function useOrganization(slug: string, options: UseOrganizationOptions = {}) {
-  const { autoFetch = true } = options;
-
-  const [organization, setOrganization] = useState<Organization | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchOrganization = useCallback(async () => {
-    if (!slug) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const res = await fetch(`/api/organizations/${slug}`);
-      if (res.ok) {
-        const json = await res.json();
-        const data = json?.data ?? json;
-        setOrganization(data);
-      } else {
-        setError('Failed to fetch organization');
-      }
-    } catch (err) {
-      console.error('Failed to fetch organization:', err);
-      setError('Failed to fetch organization');
-    } finally {
-      setLoading(false);
-    }
-  }, [slug]);
-
-  useEffect(() => {
-    if (autoFetch && slug) {
-      fetchOrganization();
-    }
-  }, [autoFetch, slug, fetchOrganization]);
-
-  return {
-    organization,
-    loading,
-    error,
-    refetch: fetchOrganization,
-  };
+export function useOrganization(slug: string, autoFetch = true) {
+  return useQuery({
+    queryKey: ['organization', slug],
+    queryFn: () => fetchOrganization(slug),
+    enabled: autoFetch && !!slug,
+    staleTime: 60 * 1000, // 1 minute
+  });
 }
