@@ -637,7 +637,7 @@ export default function ProjectSecretsPage() {
         {(() => {
           const totalSecrets = secrets.length;
           const now = new Date();
-          const expiringSoon = secrets.filter(s => s.expiresAt && new Date(s.expiresAt) < now).length;
+          const expiringSoon = secrets.filter(s => s.expiresAt && new Date(s.expiresAt) > now && Math.ceil((new Date(s.expiresAt).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) <= 30).length;
           const lastUpdated = secrets.length > 0
             ? secrets.reduce((latest, s) => new Date(s.updatedAt) > latest ? new Date(s.updatedAt) : latest, new Date(0))
             : null;
@@ -692,13 +692,14 @@ export default function ProjectSecretsPage() {
         ) : (
           <Card className="border-border bg-card overflow-hidden flex-1 flex flex-col min-h-0">
             {/* Table Header */}
-            <div className="grid grid-cols-[28px_3fr_2fr_1fr_1fr_80px] items-center px-4 h-9 border-b border-border bg-muted/50 overflow-hidden">
+            <div className="grid grid-cols-[28px_3fr_2fr_1fr_1fr_1fr_80px] items-center px-4 h-9 border-b border-border bg-muted/50 overflow-hidden">
               <div></div>
               <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1 cursor-pointer hover:text-foreground min-w-0">
                 Key
               </div>
               <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground min-w-0">Value</div>
               <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground shrink-0">Environment</div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground shrink-0">Expires</div>
               <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1 cursor-pointer hover:text-foreground shrink-0">
                 Updated
               </div>
@@ -710,7 +711,7 @@ export default function ProjectSecretsPage() {
               {filteredSecrets.map((secret) => (
                 <div
                   key={secret.id}
-                  className={`grid grid-cols-[28px_3fr_2fr_1fr_1fr_80px] items-center px-4 h-11 cursor-pointer transition-colors hover:bg-muted/50 overflow-hidden ${
+                  className={`grid grid-cols-[28px_3fr_2fr_1fr_1fr_1fr_80px] items-center px-4 h-11 cursor-pointer transition-colors hover:bg-muted/50 overflow-hidden ${
                     selectedSecret?.id === secret.id ? 'bg-gold/5 border-l-2 border-l-gold' : ''
                   }`}
                   onClick={() => setSelectedSecret(secret)}
@@ -762,6 +763,26 @@ export default function ProjectSecretsPage() {
                     <Badge variant={getEnvBadgeVariant(secret.environment?.slug || 'prod')}>
                       {secret.environment?.name || 'prod'}
                     </Badge>
+                  </div>
+
+                  {/* Expires */}
+                  <div className="shrink-0">
+                    {secret.expiresAt ? (() => {
+                      const expDate = new Date(secret.expiresAt);
+                      const now = new Date();
+                      const daysLeft = Math.ceil((expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                      if (daysLeft < 0) {
+                        return <span className="text-[10px] font-semibold text-danger">Expired</span>;
+                      } else if (daysLeft <= 7) {
+                        return <span className="text-[10px] font-semibold text-danger">{daysLeft}d left</span>;
+                      } else if (daysLeft <= 30) {
+                        return <span className="text-[10px] text-warning">{daysLeft}d left</span>;
+                      } else {
+                        return <span className="text-[10px] text-muted-foreground">{expDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>;
+                      }
+                    })() : (
+                      <span className="text-[10px] text-muted-foreground">Never</span>
+                    )}
                   </div>
 
                   {/* Updated */}
@@ -862,6 +883,29 @@ export default function ProjectSecretsPage() {
                 <div className="flex justify-between py-2 border-b border-border">
                   <span className="text-xs text-muted-foreground">Version</span>
                   <span className="text-xs font-semibold text-foreground">v{selectedSecret.version}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-border">
+                  <span className="text-xs text-muted-foreground">Expires</span>
+                  <span className="text-xs">
+                    {selectedSecret.expiresAt ? (() => {
+                      const expDate = new Date(selectedSecret.expiresAt);
+                      const now = new Date();
+                      const daysLeft = Math.ceil((expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                      if (daysLeft < 0) {
+                        return <span className="font-semibold text-danger">Expired</span>;
+                      } else if (daysLeft === 0) {
+                        return <span className="font-semibold text-danger">Today</span>;
+                      } else if (daysLeft <= 7) {
+                        return <span className="font-semibold text-danger">{daysLeft} days left</span>;
+                      } else if (daysLeft <= 30) {
+                        return <span className="text-warning">{daysLeft} days left</span>;
+                      } else {
+                        return <span className="text-foreground">{expDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>;
+                      }
+                    })() : (
+                      <span className="text-muted-foreground">Never</span>
+                    )}
+                  </span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-border">
                   <span className="text-xs text-muted-foreground">Created</span>
