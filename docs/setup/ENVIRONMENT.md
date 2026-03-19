@@ -27,7 +27,7 @@ This document describes all environment variables used in the Secret Manager app
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `ENCRYPTION_KEY` | Key for AES-256-GCM encryption | Run: `openssl rand -hex 32` |
+| `MASTER_KEY` | Master key for AES-256-GCM encryption (all secrets) | Run: `openssl rand -hex 32` |
 
 ---
 
@@ -42,7 +42,11 @@ This document describes all environment variables used in the Secret Manager app
 
 ---
 
-### Invite Codes (Future)
+### Invite Codes
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `ALLOW_SELF_REGISTRATION` | Allow open registration (disable for invite-only) | `false` |
 
 | Variable | Description | Example |
 |----------|-------------|---------|
@@ -62,7 +66,7 @@ openssl rand -base64 32
 node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 ```
 
-### ENCRYPTION_KEY
+### MASTER_KEY
 
 ```bash
 # Using openssl (hex format)
@@ -79,7 +83,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 Before deploying to production, ensure:
 
 - [ ] `NEXTAUTH_SECRET` is set to a strong random value
-- [ ] `ENCRYPTION_KEY` is set to a strong random value
+- [ ] `MASTER_KEY` is set to a strong random value
 - [ ] `DATABASE_URL` points to a production PostgreSQL instance
 - [ ] `NEXTAUTH_URL` is set to your production domain
 - [ ] `NODE_ENV` is set to `production`
@@ -96,8 +100,8 @@ DATABASE_URL="postgresql://user:password@prod-db.example.com:5432/secret_manager
 NEXTAUTH_URL="https://secrets.yourdomain.com"
 NEXTAUTH_SECRET="your-secure-random-secret-at-least-32-chars"
 
-# Encryption
-ENCRYPTION_KEY="your-64-character-hex-encryption-key"
+# Encryption (master key for AES-256-GCM)
+MASTER_KEY="your-64-character-hex-master-key"
 
 # Application
 NODE_ENV="production"
@@ -113,3 +117,4 @@ PORT="3002"
 3. **Use different secrets**: Don't use same secrets across environments
 4. **Monitor access**: Keep your `.env` file secure
 5. **Use secrets management**: Consider using AWS Secrets Manager, HashiCorp Vault, or similar for production
+6. **MASTER_KEY is critical**: This key encrypts ALL secrets. If lost, data cannot be recovered. Backup securely.

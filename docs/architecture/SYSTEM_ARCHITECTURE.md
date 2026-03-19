@@ -7,12 +7,12 @@ graph TB
     subgraph Client["Frontend - Next.js 14"]
         UI[React Components]
         Auth[Session Provider]
-        State[Client State]
+        State[React Query Cache]
     end
 
     subgraph NextServer["Next.js Server"]
         API[API Routes]
-        Middleware[NextAuth Middleware]
+        Middleware[Auth + Rate Limiting]
         Services[Service Layer]
         AuthLib[Auth Library]
     end
@@ -98,6 +98,7 @@ flowchart TB
     subgraph Root["Root Layout"]
         ThemeProvider
         SessionProvider
+        QueryProvider
     end
 
     subgraph Dashboard["Dashboard Layout"]
@@ -122,6 +123,7 @@ flowchart TB
 ```mermaid
 flowchart LR
     subgraph Request["Request Pipeline"]
+        RateLimit[Rate Limiting]
         Auth[Authentication]
         Perm[Authorization]
         Val[Validation]
@@ -133,7 +135,8 @@ flowchart LR
         Key[(Encryption Key)]
     end
 
-    Request --> Auth
+    Request --> RateLimit
+    RateLimit --> Auth
     Auth --> Perm
     Perm --> Val
     Val --> Enc

@@ -172,8 +172,9 @@ For managing multiple secrets:
 ### How Encryption Works
 
 1. **Encryption Algorithm**: AES-256-GCM
-2. **Key Derivation**: From `NEXTAUTH_SECRET`
+2. **Key Derivation**: From `MASTER_KEY` environment variable
 3. **IV**: Unique per secret for security
+4. **JSON Encryption**: `encryptJson`/`decryptJson` for complex configs
 
 ```
 Plaintext → AES-256-GCM (key + IV) → Encrypted Value
@@ -183,7 +184,10 @@ Plaintext → AES-256-GCM (key + IV) → Encrypted Value
 
 - **At Rest**: All secret values encrypted in database
 - **In Transit**: HTTPS/TLS for all API calls
-- **Key Management**: Encryption key from environment variable
+- **Key Management**: Encryption key from `MASTER_KEY` env var
+- **List View**: Secrets NOT decrypted by default (security)
+- **Dynamic Secrets**: Admin credentials and generated passwords also encrypted
+- **Integrations**: API keys and tokens encrypted at rest
 
 ---
 
@@ -232,12 +236,14 @@ model Folder {
 
 | Endpoint | Description |
 |----------|-------------|
-| GET /api/projects/[id]/secrets | List secrets |
+| GET /api/projects/[id]/secrets | List secrets (paginated) |
 | POST /api/projects/[id]/secrets | Create secret |
-| PUT /api/projects/[id]/secrets/[id] | Update secret |
-| DELETE /api/projects/[id]/secrets/[id] | Delete secret |
-| GET /api/projects/[id]/environments | List environments |
+| GET /api/secrets/[id] | Get secret (decrypted) |
+| PUT /api/secrets/[id] | Update secret |
+| DELETE /api/secrets/[id] | Delete secret |
 | GET /api/projects/[id]/folders | List folders |
+| GET /api/projects/[id]/dynamic-secrets | List dynamic secrets |
+| POST /api/projects/[id]/rotation-jobs | Create rotation job |
 
 ---
 

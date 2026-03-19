@@ -460,8 +460,8 @@ Authorization: Bearer <token>
 - Route Handler: `src/app/api/organizations/route.ts`
 - Route Handler: `src/app/api/organizations/[slug]/route.ts`
 - Route Handler: `src/app/api/organizations/[slug]/members/route.ts`
-- Service: `src/lib/services/organization.service.ts`
-- Schema: `src/lib/schemas/organization.schema.ts`
+- Service: `src/backend/services/organization.service.ts`
+- Schema: `src/backend/schemas/organization.schema.ts`
 
 ### Related Database Models
 

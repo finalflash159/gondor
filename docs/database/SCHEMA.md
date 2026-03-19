@@ -22,14 +22,31 @@ erDiagram
     Project ||--o{ Role : "has roles"
     Project ||--o{ AuditLog : "has logs"
     Project ||--o{ Alert : "has alerts"
+    Project ||--o{ DynamicSecret : "has dynamic secrets"
+    Project ||--o{ Integration : "has integrations"
 
     ProjectEnvironment ||--o{ Folder : "has folders"
     ProjectEnvironment ||--o{ Secret : "contains secrets"
+    ProjectEnvironment ||--o{ DynamicSecret : "contains dynamic secrets"
 
     Folder ||--o{ Secret : "contains"
     Folder ||--o{ Folder : "parent-child"
+    Folder ||--o{ DynamicSecret : "contains dynamic secrets"
 
     Secret ||--o{ SecretVersion : "has versions"
+
+    DynamicSecret ||--o{ DynamicSecretCredential : "has credentials"
+    DynamicSecret ||--o{ RotationJob : "has rotation jobs"
+    DynamicSecret ||--o{ RotationLog : "has rotation logs"
+
+    RotationJob ||--o{ RotationLog : "has logs"
+
+    Integration ||--o{ IntegrationSync : "has sync history"
+
+    Organization ||--o{ OrgInvitation : "has invitations"
+    Organization ||--o{ Integration : "has integrations"
+
+    OrgInvitation ||--o{ InvitationUse : "tracks usage"
 
     Role ||--o{ ProjectMember : "assigned to"
 
@@ -216,7 +233,64 @@ erDiagram
 ### Alert
 - User notifications
 - Can be at user, org, or project level
-- Types: info, warning, error, success, etc.
+- Types: info, warning, error, success, secret_expiry, security, etc.
+
+### DynamicSecret
+- Dynamically generated credentials (PostgreSQL, MySQL, MongoDB, Redis)
+- Config encrypted at rest using AES-256-GCM
+- Supports scheduled rotation via cron expression
+- Generates temporary credentials stored encrypted
+
+### DynamicSecretCredential
+- Individual generated username/password pairs
+- Password encrypted at rest
+- Has optional expiration timestamp
+
+### RotationJob
+- Cron-scheduled rotation jobs
+- Linked to a single DynamicSecret
+- Tracks last run and next run timestamps
+
+### RotationLog
+- History of rotation attempts
+- Records success/failure status and error messages
+
+### Integration
+- External service connections (GitHub, AWS, GCP, Azure, Slack)
+- Config encrypted at rest
+- Tracks last sync timestamp
+
+### IntegrationSync
+- History of sync operations
+- Records direction (push/pull), status, secrets count
+
+### OrgInvitation
+- Invitation codes for organization membership
+- Supports email restriction and usage limits
+- Expiration support
+
+### InvitationUse
+- Tracks which user used which invitation
+- One use per user per invitation
+
+## Performance Indexes
+
+15 indexes are defined for high-traffic query patterns:
+
+| Model | Index | Purpose |
+|-------|-------|---------|
+| `Secret` | `[projectId]`, `[projectId, envId]`, `[expiresAt]` | List, filter, expiry cron |
+| `AuditLog` | `[projectId, createdAt]`, `[targetId]` | Project logs, target lookups |
+| `Folder` | `[projectId, envId]` | Folder listing by project+env |
+| `DynamicSecret` | `[projectId, envId]` | Dynamic secret listing |
+| `RotationJob` | `[isActive, nextRunAt]` | Rotation scheduler |
+| `Project` | `[orgId]` | Org-scoped projects |
+| `ProjectMember` | `[projectId]`, `[userId]` | Membership lookups |
+| `Role` | `[projectId]` | Role lookup |
+| `SecretVersion` | `[secretId]` | Version history FK |
+| `InvitationUse` | `[invitationId]` | Invitation usage |
+| `IntegrationSync` | `[integrationId, createdAt]` | Sync history |
+| `OrgInvitation` | `[orgId, createdAt]`, `[code]` | Invitation listing |
 
 ## Migration Strategy
 

@@ -30,34 +30,41 @@ Authorization: Bearer <token>
 |-----------|------|-------------|
 | envId | string | Filter by environment ID |
 | folderId | string | Filter by folder ID |
-| limit | number | Number of items (default: 50) |
-| offset | number | Items to skip (default: 0) |
-| search | string | Search by secret key |
+| page | number | Page number (default: 1) |
+| limit | number | Items per page (default: 50, max: 100) |
+| decrypt | boolean | Decrypt values (default: false — security) |
 
 **Response (200 OK):**
 
 ```json
 {
   "success": true,
-  "data": [
-    {
-      "id": "cuid...",
-      "key": "API_KEY",
-      "value": "encrypted-value",
-      "folderId": "cuid...",
-      "envId": "cuid...",
-      "projectId": "cuid...",
-      "version": 1,
-      "expiresAt": null,
-      "metadata": null,
-      "createdAt": "2024-01-01T00:00:00.000Z",
-      "updatedAt": "2024-01-01T00:00:00.000Z"
+  "data": {
+    "data": [
+      {
+        "id": "cuid...",
+        "key": "API_KEY",
+        "folderId": "cuid...",
+        "envId": "cuid...",
+        "projectId": "cuid...",
+        "version": 1,
+        "expiresAt": null,
+        "metadata": null,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 50,
+      "total": 100,
+      "totalPages": 2
     }
-  ]
+  }
 }
 ```
 
-**Note:** Secret values are always encrypted. The API returns the encrypted value.
+**Note:** Secret values are encrypted by default. Set `decrypt=true` to get decrypted values. List view does NOT decrypt for security.
 
 ---
 
@@ -364,7 +371,7 @@ Authorization: Bearer <token>
 ### How It Works
 
 1. Secret values are encrypted using AES-256-GCM before storing in the database
-2. Encryption key is derived from `NEXTAUTH_SECRET` environment variable
+2. Encryption key is derived from `MASTER_KEY` environment variable
 3. Each secret has a unique IV (Initialization Vector) for security
 4. The encrypted value includes the IV, so decryption is possible
 
@@ -540,12 +547,12 @@ Authorization: Bearer <token>
 ### Files
 
 - Route Handler: `src/app/api/projects/[id]/secrets/route.ts`
-- Route Handler: `src/app/api/projects/[id]/secrets/[secretId]/route.ts`
-- Route Handler: `src/app/api/projects/[id]/secrets/bulk/route.ts`
+- Route Handler: `src/app/api/secrets/[id]/route.ts`
 - Route Handler: `src/app/api/projects/[id]/folders/route.ts`
-- Service: `src/lib/services/secret.service.ts`
-- Service: `src/lib/services/folder.service.ts`
+- Service: `src/backend/services/secret.service.ts`
+- Service: `src/backend/services/folder.service.ts`
 - Encryption: `src/lib/encryption.ts`
+- Hooks: `src/hooks/useSecrets.ts` (React Query)
 
 ### Related Database Models
 
@@ -553,3 +560,10 @@ Authorization: Bearer <token>
 - `SecretVersion`: Version history
 - `Folder`: Folder hierarchy
 - `ProjectEnvironment`: Environment containing secrets
+
+### Security Features
+
+- All secret values encrypted with AES-256-GCM at rest
+- `MASTER_KEY` env var for encryption key derivation
+- List API does NOT decrypt by default (set `decrypt=true`)
+- Generated passwords in DynamicSecrets are also encrypted

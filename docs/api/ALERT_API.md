@@ -252,7 +252,7 @@ Alerts are user-specific. Users can only view and manage their own alerts.
 ### Files
 
 - Route Handler: `src/app/api/alerts/route.ts`
-- Service: `src/lib/services/alert.service.ts`
+- Service: `src/backend/services/alert.service.ts`
 - Hook: `src/hooks/use-alerts.ts`
 - Page: `src/app/(dashboard)/alerts/page.tsx`
 
