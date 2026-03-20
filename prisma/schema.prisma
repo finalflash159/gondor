@@ -15,6 +15,7 @@ model User {
   email         String    @unique
   password      String
   name          String?
+  isMasterAdmin Boolean   @default(false)  // First user to register with MASTER_INVITE_CODE
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   memberships   ProjectMember[]
@@ -322,11 +323,9 @@ model InvitationUse {
   invitation    OrgInvitation? @relation(fields: [invitationId], references: [id], onDelete: Cascade)
   userId        String
   user          User          @relation(fields: [userId], references: [id])
-  usedByEmail   String?      // tracks master invite code usage (MASTER_INVITE_CODE)
   usedAt        DateTime      @default(now())
 
   @@unique([invitationId, userId])
-  @@unique([usedByEmail])
   @@index([invitationId])
 }
 

@@ -13,15 +13,18 @@ const registerSchema = z.object({
 });
 
 /**
- * MASTER_SUPER_ADMIN mode:
- * - If MASTER_SUPER_ADMIN_EMAIL is set, only that exact email can register.
- * - MASTER_INVITE_CODE must match, and it is single-use (tracked in DB after first use).
- * - The master user is NOT added to any org automatically — they create their own.
+ * Registration modes:
  *
- * Normal mode:
- * - ALLOW_SELF_REGISTRATION=true  → anyone can register freely.
- * - ALLOW_SELF_REGISTRATION=false → must provide a valid DB invite code.
- *   (INVITE_CODES env var fallback is REMOVED — expired/revoked codes must not be accepted)
+ * 1. MASTER_INVITE_CODE set:
+ *    - Anyone can register with this code
+ *    - First user to use it becomes isMasterAdmin=true
+ *    - Subsequent uses of the same code are REJECTED (single-use)
+ *
+ * 2. ALLOW_SELF_REGISTRATION=true (no MASTER_INVITE_CODE):
+ *    - Anyone can register freely
+ *
+ * 3. ALLOW_SELF_REGISTRATION=false (no MASTER_INVITE_CODE):
+ *    - Must provide a valid DB invite code (OrgInvitation)
  */
 export async function POST(req: NextRequest) {
   // Rate limit check
@@ -46,73 +49,59 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const validatedData = registerSchema.parse(body);
-    const masterEmail = process.env.MASTER_SUPER_ADMIN_EMAIL;
     const masterCode = process.env.MASTER_INVITE_CODE;
 
-    // ── MASTER_SUPER_ADMIN mode ────────────────────────────────────────────────
-    if (masterEmail) {
-      // Only the master email is allowed
-      if (validatedData.email.toLowerCase() !== masterEmail.toLowerCase()) {
-        return NextResponse.json(
-          { error: 'Registration is restricted to authorized administrators only.' },
-          { status: 403 }
-        );
-      }
+    // Check if user already exists
+    const existingUser = await db.user.findUnique({
+      where: { email: validatedData.email.toLowerCase() },
+    });
+    if (existingUser) {
+      return NextResponse.json(
+        { error: 'Email already registered' },
+        { status: 400 }
+      );
+    }
 
-      // Check master invite code
-      if (!masterCode) {
-        // If master mode is on but no code configured, block all registration
+    // ── MASTER_INVITE_CODE mode ──────────────────────────────────────────────────
+    if (masterCode) {
+      if (!validatedData.inviteCode) {
         return NextResponse.json(
-          { error: 'Registration is currently disabled.' },
+          { error: 'Invitation code is required.' },
           { status: 403 }
         );
       }
 
       if (validatedData.inviteCode !== masterCode) {
         return NextResponse.json(
-          { error: 'Invalid master invitation code.' },
+          { error: 'Invalid invitation code.' },
           { status: 400 }
         );
       }
 
-      // Check if master code was already used
-      const existingUse = await db.invitationUse.findFirst({
-        where: { usedByEmail: validatedData.email.toLowerCase() },
+      // Check if any user has already used this master code
+      const masterAlreadyUsed = await db.user.findFirst({
+        where: { isMasterAdmin: true },
       });
-      if (existingUse) {
+      if (masterAlreadyUsed) {
         return NextResponse.json(
-          { error: 'This master invitation code has already been used.' },
+          { error: 'This invitation code has already been used.' },
           { status: 400 }
         );
       }
 
-      // Check if user already exists
-      const existingUser = await db.user.findUnique({
-        where: { email: validatedData.email.toLowerCase() },
-      });
-      if (existingUser) {
-        return NextResponse.json(
-          { error: 'Email already registered' },
-          { status: 400 }
-        );
-      }
-
-      // Create user
+      // First user to register with this code → becomes master admin
       const hashedPassword = await hashPassword(validatedData.password);
       const user = await db.user.create({
         data: {
           email: validatedData.email.toLowerCase(),
           password: hashedPassword,
           name: validatedData.name,
+          isMasterAdmin: true,
         },
       });
 
-      // Track master code usage (single-use, no DB invite record)
-      await invitationService.markAsUsed(
-        null,
-        user.id,
-        validatedData.email.toLowerCase()
-      );
+      // Track usage with null invitationId (no DB invite record for master codes)
+      await invitationService.markAsUsed(null, user.id);
 
       return NextResponse.json(
         { id: user.id, email: user.email, name: user.name },
@@ -120,10 +109,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── NORMAL mode ──────────────────────────────────────────────────────────
+    // ── NORMAL mode ─────────────────────────────────────────────────────────────
     const allowSelfRegistration = process.env.ALLOW_SELF_REGISTRATION === 'true';
 
-    // If self-registration is off, invite code is mandatory
     if (!allowSelfRegistration && !validatedData.inviteCode) {
       return NextResponse.json(
         { error: 'Registration is by invitation only. Please contact your administrator.' },
@@ -131,7 +119,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate DB invite code (no fallback to env INVITE_CODES)
+    // Validate DB invite code
     let invitationData: {
       valid: boolean;
       error?: string;
@@ -154,21 +142,8 @@ export async function POST(req: NextRequest) {
       invitationData = dbValidation;
     }
 
-    // Check if user already exists
-    const existingUser = await db.user.findUnique({
-      where: { email: validatedData.email.toLowerCase() },
-    });
-    if (existingUser) {
-      return NextResponse.json(
-        { error: 'Email already registered' },
-        { status: 400 }
-      );
-    }
-
-    // Hash password
+    // Hash password and create user
     const hashedPassword = await hashPassword(validatedData.password);
-
-    // Create user
     const user = await db.user.create({
       data: {
         email: validatedData.email.toLowerCase(),

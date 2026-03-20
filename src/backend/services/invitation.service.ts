@@ -150,15 +150,13 @@ export const invitationService = {
    * Mark invitation as used
    * @param invitationId - DB invitation ID (optional for master invite codes)
    * @param userId - user who used the invitation
-   * @param usedByEmail - email used with master invite code (for uniqueness tracking)
    */
-  async markAsUsed(invitationId: string | null, userId: string, usedByEmail?: string): Promise<void> {
+  async markAsUsed(invitationId: string | null, userId: string): Promise<void> {
     await db.$transaction(async (tx) => {
       await tx.invitationUse.create({
         data: {
           invitationId,
           userId,
-          usedByEmail: usedByEmail || null,
         },
       });
 
