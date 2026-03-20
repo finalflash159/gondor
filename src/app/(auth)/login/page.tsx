@@ -79,8 +79,8 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-[var(--background)] p-4">
       <div className="w-full max-w-sm">
         {/* Logo */}
-        <div className="flex items-center justify-center mb-6">
-          <Logo width={140} height={48} />
+        <div className="flex items-center justify-center mb-10">
+          <Logo width={180} height={64} />
         </div>
 
         <Card>
@@ -98,10 +98,11 @@ export default function LoginPage() {
                 </div>
               )}
               <div className="space-y-1.5">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="text-sm font-medium">Email</Label>
                 <Input
                   id="email"
                   type="email"
+                  inputHeight="lg"
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -109,20 +110,21 @@ export default function LoginPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password" className="text-sm font-medium">Password</Label>
                 <Input
                   id="password"
                   type="password"
+                  inputHeight="lg"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" className="w-full h-11 text-base" disabled={loading}>
                 {loading ? 'Signing in...' : 'Sign in'}
               </Button>
             </form>
-            <div className="mt-3 text-center text-xs">
+            <div className="mt-4 text-center text-sm">
               Don&apos;t have an account?{' '}
               <Link href="/register" className="text-[var(--primary)] hover:underline">
                 Register
