@@ -256,7 +256,7 @@ erDiagram
 - Records success/failure status and error messages
 
 ### Integration
-- External service connections (GitHub, AWS, GCP, Azure, Slack)
+- External service connections (GitHub, AWS, Azure, Slack)
 - Config encrypted at rest
 - Tracks last sync timestamp
 
