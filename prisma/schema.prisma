@@ -15,6 +15,7 @@ model User {
   email         String    @unique
   password      String
   name          String?
+  isMasterAdmin Boolean   @default(false)  // Super master: can create orgs when SUPER_MASTER_ADMIN=true
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   memberships   ProjectMember[]
@@ -298,7 +299,7 @@ model OrgInvitation {
   orgId        String
   org          Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
   code         String          @unique // 8-char alphanumeric
-  email        String?         @unique // Optional: restrict to specific email
+  email        String?         // Optional: restrict to specific email
   role         RoleType        // admin, member
   maxUses      Int?            // null = unlimited
   usedCount    Int             @default(0)
@@ -311,6 +312,7 @@ model OrgInvitation {
   // Relations
   uses         InvitationUse[]
 
+  @@unique([orgId, email])
   @@index([orgId, createdAt])
   @@index([code])
 }
@@ -318,8 +320,8 @@ model OrgInvitation {
 // Track who used each invitation
 model InvitationUse {
   id            String        @id @default(cuid())
-  invitationId  String
-  invitation    OrgInvitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  invitationId  String?       // null for master invite codes (no DB invite record)
+  invitation    OrgInvitation? @relation(fields: [invitationId], references: [id], onDelete: Cascade)
   userId        String
   user          User          @relation(fields: [userId], references: [id])
   usedAt        DateTime      @default(now())

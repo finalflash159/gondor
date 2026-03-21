@@ -3,12 +3,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
-import { Plus, Trash2, RefreshCw, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, CheckCircle, XCircle, Loader2, Shield } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Modal } from '@/components/ui/modal';
+import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { useToast } from '@/components/ui/toast';
 import { integrationTypes } from '@/config/integrations';
 
@@ -41,11 +42,13 @@ export default function IntegrationsPage() {
 
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [testing, setTesting] = useState<string | null>(null);
+  const [userOrgRole, setUserOrgRole] = useState<string | null>(null);
 
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedType, setSelectedType] = useState<string>('');
   const [saving, setSaving] = useState(false);
+  const [confirmDisconnect, setConfirmDisconnect] = useState<Integration | null>(null);
 
   // Form state
   const [integrationName, setIntegrationName] = useState('');
@@ -53,10 +56,25 @@ export default function IntegrationsPage() {
 
   const fetchIntegrations = useCallback(async () => {
     try {
-      const res = await fetch(`/api/organizations/${slug}/integrations`);
-      if (res.ok) {
-        const json = await res.json();
+      const [integrationsRes, sessionRes] = await Promise.all([
+        fetch(`/api/organizations/${slug}/integrations`),
+        fetch('/api/auth/session'),
+      ]);
+      if (integrationsRes.ok) {
+        const json = await integrationsRes.json();
         setIntegrations(json?.data ?? json);
+      }
+      if (sessionRes.ok) {
+        const sessionJson = await sessionRes.json();
+        const orgRes = await fetch(`/api/organizations/${slug}`);
+        if (orgRes.ok) {
+          const json = await orgRes.json();
+          const data = json?.data ?? json;
+          const myMembership = data?.members?.find(
+            (m: { userId: string }) => m.userId === sessionJson?.user?.id
+          );
+          setUserOrgRole(myMembership?.role ?? null);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch integrations:', err);
@@ -122,11 +140,11 @@ export default function IntegrationsPage() {
     }
   };
 
-  const handleDeleteIntegration = async (integration: Integration) => {
-    if (!confirm(`Are you sure you want to disconnect "${integration.name}"?`)) return;
+  const handleDeleteIntegration = async () => {
+    if (!confirmDisconnect) return;
 
     try {
-      const res = await fetch(`/api/organizations/${slug}/integrations/${integration.id}`, {
+      const res = await fetch(`/api/organizations/${slug}/integrations/${confirmDisconnect.id}`, {
         method: 'DELETE',
       });
 
@@ -139,6 +157,8 @@ export default function IntegrationsPage() {
       }
     } catch {
       addToast({ title: 'An error occurred', variant: 'error' });
+    } finally {
+      setConfirmDisconnect(null);
     }
   };
 
@@ -168,6 +188,20 @@ export default function IntegrationsPage() {
   };
 
   const selectedTypeData = getIntegrationType(selectedType);
+
+  if (!userOrgRole || userOrgRole === 'member') {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="h-12 w-12 rounded-full bg-danger/10 flex items-center justify-center mb-4">
+          <Shield className="h-6 w-6 text-danger" />
+        </div>
+        <h2 className="text-lg font-semibold text-foreground mb-1">Access Restricted</h2>
+        <p className="text-sm text-muted-foreground max-w-sm">
+          You need admin or owner role to manage integrations.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -232,7 +266,7 @@ export default function IntegrationsPage() {
                         variant="ghost"
                         size="sm"
                         className="h-9 w-9 p-0 text-muted-foreground hover:text-danger"
-                        onClick={() => handleDeleteIntegration(integration)}
+                        onClick={() => setConfirmDisconnect(integration)}
                       >
                         <Trash2 className="h-5 w-5" />
                       </Button>
@@ -360,6 +394,16 @@ export default function IntegrationsPage() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmModal
+        isOpen={!!confirmDisconnect}
+        onClose={() => setConfirmDisconnect(null)}
+        onConfirm={handleDeleteIntegration}
+        title={`Disconnect "${confirmDisconnect?.name}"?`}
+        description="The integration will be removed and any synced data will be lost."
+        confirmText="Disconnect"
+        variant="danger"
+      />
     </div>
   );
 }

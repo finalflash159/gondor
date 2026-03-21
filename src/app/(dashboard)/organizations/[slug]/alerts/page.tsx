@@ -167,6 +167,7 @@ export default function AlertsPage() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
+  const [userOrgRole, setUserOrgRole] = useState<string | null>(null);
   const [filters, setFilters] = useState<AlertFilters>({
     type: 'all',
     scope: 'all',
@@ -185,13 +186,30 @@ export default function AlertsPage() {
       if (filters.type !== 'all') params.set('type', filters.type);
       if (filters.read === 'read') params.set('read', 'true');
       else if (filters.read === 'unread') params.set('read', 'false');
+      if (filters.scope !== 'all') params.set('scope', filters.scope);
 
-      const res = await fetch(`/api/alerts?${params.toString()}`);
+      const [res, sessionRes] = await Promise.all([
+        fetch(`/api/alerts?${params.toString()}`),
+        fetch('/api/auth/session'),
+      ]);
       const json = await res.json();
 
       if (json?.data) {
         setAlerts(json.data.alerts || []);
         setTotal(json.data.total || 0);
+      }
+
+      if (sessionRes.ok) {
+        const sessionJson = await sessionRes.json();
+        const orgRes = await fetch(`/api/organizations/${slug}`);
+        if (orgRes.ok) {
+          const json = await orgRes.json();
+          const data = json?.data ?? json;
+          const myMembership = data?.members?.find(
+            (m: { userId: string }) => m.userId === sessionJson?.user?.id
+          );
+          setUserOrgRole(myMembership?.role ?? null);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch alerts:', err);
@@ -203,7 +221,7 @@ export default function AlertsPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters, page, addToast]);
+  }, [filters, page, slug, addToast]);
 
   useEffect(() => {
     fetchAlerts();
@@ -279,6 +297,7 @@ export default function AlertsPage() {
 
   const unreadCount = alerts.filter((a) => !a.read).length;
   const totalPages = Math.ceil(total / limit);
+  const isAdmin = userOrgRole === 'owner' || userOrgRole === 'admin';
 
   return (
     <div className="space-y-4">
@@ -290,7 +309,7 @@ export default function AlertsPage() {
             Stay updated on secrets, security, and team activities
           </p>
         </div>
-        {unreadCount > 0 && (
+        {unreadCount > 0 && isAdmin && (
           <Button variant="outline" size="sm" onClick={handleMarkAllAsRead}>
             <Eye className="h-4 w-4 mr-2" />
             Mark all as read
@@ -424,7 +443,7 @@ export default function AlertsPage() {
 
                     {/* Actions */}
                     <div className="flex items-center gap-2 shrink-0">
-                      {!alert.read && (
+                      {!alert.read && isAdmin && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -434,15 +453,17 @@ export default function AlertsPage() {
                           <Eye className="h-4 w-4" />
                         </Button>
                       )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(alert.id)}
-                        title="Delete"
-                        className="text-muted-foreground hover:text-danger"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {isAdmin && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(alert.id)}
+                          title="Delete"
+                          className="text-muted-foreground hover:text-danger"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 );

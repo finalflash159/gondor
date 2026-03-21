@@ -110,7 +110,7 @@ export const invitationService = {
   async validateForRegistration(
     code: string,
     email: string
-  ): Promise<{ valid: boolean; error?: string; role?: RoleType; invitationId?: string; orgId?: string }> {
+  ): Promise<{ valid: boolean; error?: string; role?: RoleType; invitationId?: string; orgId?: string; createdBy?: string | null }> {
     const invitation = await this.getByCode(code);
 
     if (!invitation) {
@@ -143,27 +143,32 @@ export const invitationService = {
       role: invitation.role,
       invitationId: invitation.id,
       orgId: invitation.orgId,
+      createdBy: invitation.createdBy,
     };
   },
 
   /**
    * Mark invitation as used
+   * @param invitationId - DB invitation ID (optional for master invite codes)
+   * @param userId - user who used the invitation
    */
-  async markAsUsed(invitationId: string, userId: string): Promise<void> {
-    await db.$transaction([
-      db.invitationUse.create({
+  async markAsUsed(invitationId: string | null, userId: string): Promise<void> {
+    await db.$transaction(async (tx) => {
+      await tx.invitationUse.create({
         data: {
           invitationId,
           userId,
         },
-      }),
-      db.orgInvitation.update({
-        where: { id: invitationId },
-        data: {
-          usedCount: { increment: 1 },
-        },
-      }),
-    ]);
+      });
+
+      // Only increment usedCount if this is a real DB invitation
+      if (invitationId) {
+        await tx.orgInvitation.update({
+          where: { id: invitationId },
+          data: { usedCount: { increment: 1 } },
+        });
+      }
+    });
   },
 
   /**

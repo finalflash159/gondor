@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import { Copy, RefreshCw, Trash2, Plus, Loader2, Link, Mail, Clock, CheckCircle, XCircle, Users } from 'lucide-react';
+import { Copy, RefreshCw, Trash2, Plus, Loader2, Link, Mail, Clock, CheckCircle, XCircle, Users, Shield } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Modal } from '@/components/ui/modal';
+import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { useToast } from '@/components/ui/toast';
 
 interface Invitation {
@@ -49,8 +50,13 @@ export default function InvitationsPage() {
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [stats, setStats] = useState<Stats>({ total: 0, active: 0, used: 0, expired: 0, revoked: 0 });
   const [loading, setLoading] = useState(true);
+  const [userOrgRole, setUserOrgRole] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creating, setCreating] = useState(false);
+
+  // Confirm modals
+  const [confirmRevoke, setConfirmRevoke] = useState<string | null>(null);
+  const [confirmRegenerate, setConfirmRegenerate] = useState<string | null>(null);
 
   // Form state
   const [formRole, setFormRole] = useState<'admin' | 'member'>('member');
@@ -60,12 +66,33 @@ export default function InvitationsPage() {
 
   const fetchInvitations = useCallback(async () => {
     try {
-      const res = await fetch(`/api/organizations/${slug}/invitations`);
-      if (res.ok) {
-        const json = await res.json();
+      const [invRes, orgRes, sessionRes] = await Promise.all([
+        fetch(`/api/organizations/${slug}/invitations`),
+        fetch(`/api/organizations/${slug}`),
+        fetch('/api/auth/session'),
+      ]);
+      if (invRes.ok) {
+        const json = await invRes.json();
         const data = json?.data ?? json;
         setInvitations(data.invitations || []);
         setStats(data.stats || { total: 0, active: 0, used: 0, expired: 0, revoked: 0 });
+      }
+      // Always determine role when session exists
+      if (sessionRes.ok) {
+        const sessionJson = await sessionRes.json();
+        const userId = sessionJson?.user?.id;
+        if (userId) {
+          if (orgRes.ok) {
+            const orgJson = await orgRes.json();
+            const orgData = orgJson?.data ?? orgJson;
+            const myMembership = orgData?.members?.find(
+              (m: { userId: string }) => m.userId === userId
+            );
+            setUserOrgRole(myMembership?.role ?? null);
+          } else {
+            setUserOrgRole(null);
+          }
+        }
       }
     } catch (err) {
       console.error('Failed to fetch invitations:', err);
@@ -110,9 +137,9 @@ export default function InvitationsPage() {
     }
   };
 
-  const handleRevoke = async (id: string) => {
-    if (!confirm('Are you sure you want to revoke this invitation?')) return;
-
+  const handleRevoke = async () => {
+    const id = confirmRevoke;
+    if (!id) return;
     try {
       const res = await fetch(`/api/organizations/${slug}/invitations/${id}`, {
         method: 'DELETE',
@@ -121,6 +148,7 @@ export default function InvitationsPage() {
       if (res.ok) {
         addToast({ title: 'Invitation revoked', variant: 'success' });
         fetchInvitations();
+        setConfirmRevoke(null);
       } else {
         const data = await res.json();
         addToast({ title: data.error || 'Failed to revoke', variant: 'error' });
@@ -130,9 +158,9 @@ export default function InvitationsPage() {
     }
   };
 
-  const handleRegenerate = async (id: string) => {
-    if (!confirm('Generate a new code for this invitation? The old code will no longer work.')) return;
-
+  const handleRegenerate = async () => {
+    const id = confirmRegenerate;
+    if (!id) return;
     try {
       const res = await fetch(`/api/organizations/${slug}/invitations/${id}/regenerate`, {
         method: 'POST',
@@ -141,6 +169,7 @@ export default function InvitationsPage() {
       if (res.ok) {
         addToast({ title: 'Code regenerated', variant: 'success' });
         fetchInvitations();
+        setConfirmRegenerate(null);
       } else {
         const data = await res.json();
         addToast({ title: data.error || 'Failed to regenerate', variant: 'error' });
@@ -193,6 +222,20 @@ export default function InvitationsPage() {
     );
   }
 
+  if (!userOrgRole || userOrgRole === 'member') {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="h-12 w-12 rounded-full bg-danger/10 flex items-center justify-center mb-4">
+          <Shield className="h-6 w-6 text-danger" />
+        </div>
+        <h2 className="text-lg font-semibold text-foreground mb-1">Access Restricted</h2>
+        <p className="text-sm text-muted-foreground max-w-sm">
+          You need admin or owner role to manage invitations.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -200,10 +243,12 @@ export default function InvitationsPage() {
           <h1 className="text-xl font-bold text-foreground">Invitations</h1>
           <p className="text-sm text-muted-foreground">Manage invitation codes for your organization</p>
         </div>
-        <Button onClick={() => setShowCreateModal(true)}>
+        {(userOrgRole === 'owner' || userOrgRole === 'admin') && (
+          <Button onClick={() => setShowCreateModal(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Create Invitation
         </Button>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -322,7 +367,7 @@ export default function InvitationsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleRegenerate(invitation.id)}
+                          onClick={() => setConfirmRegenerate(invitation.id)}
                           title="Regenerate code"
                           disabled={invitation.isRevoked}
                         >
@@ -331,7 +376,7 @@ export default function InvitationsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleRevoke(invitation.id)}
+                          onClick={() => setConfirmRevoke(invitation.id)}
                           title="Revoke"
                           disabled={invitation.isRevoked}
                           className="text-muted-foreground hover:text-red-500"
@@ -421,6 +466,26 @@ export default function InvitationsPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Confirm Modals */}
+      <ConfirmModal
+        isOpen={confirmRevoke !== null}
+        onClose={() => setConfirmRevoke(null)}
+        onConfirm={handleRevoke}
+        title="Revoke Invitation"
+        description="This invitation code will no longer work. This action cannot be undone."
+        confirmText="Revoke"
+        variant="danger"
+      />
+      <ConfirmModal
+        isOpen={confirmRegenerate !== null}
+        onClose={() => setConfirmRegenerate(null)}
+        onConfirm={handleRegenerate}
+        title="Regenerate Code"
+        description="A new code will be generated. The old code will stop working immediately."
+        confirmText="Regenerate"
+        variant="default"
+      />
     </div>
   );
 }

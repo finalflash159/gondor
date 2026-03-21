@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import { Plus, Folder, Pencil, Trash2, ChevronRight, ChevronDown, Loader2 } from 'lucide-react';
+import { Plus, Folder, Pencil, Trash2, ChevronRight, ChevronDown, Loader2, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Modal } from '@/components/ui/modal';
+import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { useToast } from '@/components/ui/toast';
 
 interface FolderData {
@@ -25,6 +26,8 @@ interface Project {
   id: string;
   name: string;
   slug: string;
+  ownerId: string;
+  members?: { userId: string }[];
 }
 
 interface Environment {
@@ -42,6 +45,7 @@ export default function FoldersPage() {
   const [environments, setEnvironments] = useState<Environment[]>([]);
   const [folders, setFolders] = useState<FolderData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userOrgRole, setUserOrgRole] = useState<string | null>(null);
   const [selectedProject, setSelectedProject] = useState<string>('');
   const [selectedEnv, setSelectedEnv] = useState<string>('');
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
@@ -50,6 +54,7 @@ export default function FoldersPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingFolder, setEditingFolder] = useState<FolderData | null>(null);
+  const [confirmDeleteFolder, setConfirmDeleteFolder] = useState<FolderData | null>(null);
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -59,17 +64,44 @@ export default function FoldersPage() {
 
   const fetchProjects = useCallback(async () => {
     try {
-      const res = await fetch(`/api/organizations/${slug}`);
-      if (res.ok) {
-        const json = await res.json();
-        const data = json?.data ?? json;
-        setProjects(data.projects || []);
-        if (data.projects?.length > 0) {
-          setSelectedProject(data.projects[0].id);
+      const [orgRes, sessionRes] = await Promise.all([
+        fetch(`/api/organizations/${slug}`),
+        fetch('/api/auth/session'),
+      ]);
+
+      // Read responses in parallel to avoid body consumption issues
+      const [orgJson, sessionJson] = await Promise.all([
+        orgRes.ok ? orgRes.json() : null,
+        sessionRes.ok ? sessionRes.json() : null,
+      ]);
+      const orgData = (orgJson?.data ?? orgJson) ?? null;
+      const userId = sessionJson?.user?.id ?? null;
+
+      if (orgData && userId) {
+        const myMembership = orgData.members?.find(
+          (m: { userId: string }) => m.userId === userId
+        );
+        setUserOrgRole(myMembership?.role ?? null);
+
+        const isAdmin = myMembership?.role === 'owner' || myMembership?.role === 'admin';
+
+        // Filter to only projects the user has access to
+        const allProjects: Project[] = orgData.projects ?? [];
+        const accessibleProjects = isAdmin
+          ? allProjects
+          : allProjects.filter(
+              (p) => p.ownerId === userId || (p.members ?? []).some((m: { userId: string }) => m.userId === userId)
+            );
+
+        setProjects(accessibleProjects);
+        if (accessibleProjects.length > 0) {
+          setSelectedProject(accessibleProjects[0].id);
         }
       }
     } catch (err) {
       console.error('Failed to fetch projects:', err);
+    } finally {
+      setLoading(false);
     }
   }, [slug]);
 
@@ -118,7 +150,7 @@ export default function FoldersPage() {
 
   useEffect(() => {
     fetchEnvironments();
-  }, [fetchEnvironments]);
+  }, [fetchEnvironments, selectedProject]);
 
   useEffect(() => {
     fetchFolders();
@@ -198,11 +230,11 @@ export default function FoldersPage() {
     }
   };
 
-  const handleDeleteFolder = async (folder: FolderData) => {
-    if (!confirm(`Are you sure you want to delete "${folder.name}"?`)) return;
+  const handleDeleteFolder = async () => {
+    if (!confirmDeleteFolder) return;
 
     try {
-      const res = await fetch(`/api/folders/${folder.id}`, {
+      const res = await fetch(`/api/folders/${confirmDeleteFolder.id}`, {
         method: 'DELETE',
       });
 
@@ -215,6 +247,8 @@ export default function FoldersPage() {
       }
     } catch {
       addToast({ title: 'An error occurred', variant: 'error' });
+    } finally {
+      setConfirmDeleteFolder(null);
     }
   };
 
@@ -294,7 +328,7 @@ export default function FoldersPage() {
               variant="ghost"
               size="sm"
               className="h-7 w-7 p-0 text-muted-foreground hover:text-danger"
-              onClick={() => handleDeleteFolder(folder)}
+              onClick={() => setConfirmDeleteFolder(folder)}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -318,6 +352,20 @@ export default function FoldersPage() {
   };
 
   const flatFolders = flattenFolders(folderTree);
+
+  if (!userOrgRole || userOrgRole === 'member') {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="h-12 w-12 rounded-full bg-danger/10 flex items-center justify-center mb-4">
+          <Shield className="h-6 w-6 text-danger" />
+        </div>
+        <h2 className="text-lg font-semibold text-foreground mb-1">Access Restricted</h2>
+        <p className="text-sm text-muted-foreground max-w-sm">
+          You need admin or owner role to manage folders.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -456,6 +504,16 @@ export default function FoldersPage() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmModal
+        isOpen={!!confirmDeleteFolder}
+        onClose={() => setConfirmDeleteFolder(null)}
+        onConfirm={handleDeleteFolder}
+        title={`Delete "${confirmDeleteFolder?.name}"?`}
+        description="This action cannot be undone. All secrets inside this folder will also be deleted."
+        confirmText="Delete"
+        variant="danger"
+      />
     </div>
   );
 }

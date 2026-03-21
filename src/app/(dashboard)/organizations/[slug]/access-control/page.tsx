@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Modal } from '@/components/ui/modal';
+import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { useToast } from '@/components/ui/toast';
 
 interface Role {
@@ -25,6 +26,8 @@ interface Project {
   id: string;
   name: string;
   slug: string;
+  ownerId: string;
+  members?: { userId: string }[];
   roles: Role[];
 }
 
@@ -38,7 +41,7 @@ const allPermissions = [
   { name: 'project:delete', description: 'Delete the project' },
 ];
 
-const systemRoles = ['admin', 'editor', 'viewer'];
+const systemRoles = ['admin', 'developer', 'viewer'];
 
 export default function AccessControlPage() {
   const params = useParams();
@@ -47,6 +50,7 @@ export default function AccessControlPage() {
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userOrgRole, setUserOrgRole] = useState<string | null>(null);
   const [selectedProject, setSelectedProject] = useState<string>('');
   const [roles, setRoles] = useState<Role[]>([]);
   const [rolesLoading, setRolesLoading] = useState(false);
@@ -56,6 +60,7 @@ export default function AccessControlPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [saving, setSaving] = useState(false);
+  const [confirmDeleteRole, setConfirmDeleteRole] = useState<Role | null>(null);
 
   // Form state
   const [roleName, setRoleName] = useState('');
@@ -65,13 +70,33 @@ export default function AccessControlPage() {
 
   const fetchProjects = useCallback(async () => {
     try {
-      const res = await fetch(`/api/organizations/${slug}`);
-      if (res.ok) {
-        const json = await res.json();
-        const data = json?.data ?? json;
-        setProjects(data.projects || []);
-        if (data.projects?.length > 0) {
-          setSelectedProject(data.projects[0].id);
+      const [orgRes, sessionRes] = await Promise.all([
+        fetch(`/api/organizations/${slug}`),
+        fetch('/api/auth/session'),
+      ]);
+      if (orgRes.ok && sessionRes.ok) {
+        const orgJson = await orgRes.json();
+        const orgData = orgJson?.data ?? orgJson;
+        const sessionJson = await sessionRes.json();
+        const currentUserId = sessionJson?.user?.id;
+        const myMembership = orgData?.members?.find(
+          (m: { userId: string }) => m.userId === currentUserId
+        );
+        setUserOrgRole(myMembership?.role ?? null);
+
+        const isAdmin = myMembership?.role === 'owner' || myMembership?.role === 'admin';
+
+        // Filter to only projects the user has access to
+        const allProjects: Project[] = orgData?.projects ?? [];
+        const accessibleProjects = isAdmin
+          ? allProjects
+          : allProjects.filter(
+              (p) => p.ownerId === currentUserId || (p.members ?? []).some((m: { userId: string }) => m.userId === currentUserId)
+            );
+
+        setProjects(accessibleProjects);
+        if (accessibleProjects.length > 0) {
+          setSelectedProject(accessibleProjects[0].id);
         }
       }
     } catch (err) {
@@ -216,12 +241,11 @@ export default function AccessControlPage() {
     }
   };
 
-  const handleDeleteRole = async (role: Role) => {
-    if (!confirm(`Are you sure you want to delete "${role.name}"?`)) return;
-    if (!selectedProject) return;
+  const handleDeleteRole = async () => {
+    if (!confirmDeleteRole || !selectedProject) return;
 
     try {
-      const res = await fetch(`/api/projects/${selectedProject}/roles/${role.id}`, {
+      const res = await fetch(`/api/projects/${selectedProject}/roles/${confirmDeleteRole.id}`, {
         method: 'DELETE',
       });
 
@@ -234,6 +258,8 @@ export default function AccessControlPage() {
       }
     } catch {
       addToast({ title: 'An error occurred', variant: 'error' });
+    } finally {
+      setConfirmDeleteRole(null);
     }
   };
 
@@ -241,6 +267,21 @@ export default function AccessControlPage() {
     return (
       <div className="flex items-center justify-center py-16">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // Non-admin/member users cannot access access control
+  if (!userOrgRole || userOrgRole === 'member') {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="h-12 w-12 rounded-full bg-danger/10 flex items-center justify-center mb-4">
+          <Shield className="h-6 w-6 text-danger" />
+        </div>
+        <h2 className="text-lg font-semibold text-foreground mb-1">Access Restricted</h2>
+        <p className="text-sm text-muted-foreground max-w-sm">
+          You need admin or owner role to manage access control.
+        </p>
       </div>
     );
   }
@@ -370,7 +411,7 @@ export default function AccessControlPage() {
                             variant="ghost"
                             size="sm"
                             className="h-8 w-8 p-0 text-muted-foreground hover:text-danger"
-                            onClick={() => handleDeleteRole(role)}
+                            onClick={() => setConfirmDeleteRole(role)}
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
@@ -520,6 +561,16 @@ export default function AccessControlPage() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmModal
+        isOpen={!!confirmDeleteRole}
+        onClose={() => setConfirmDeleteRole(null)}
+        onConfirm={handleDeleteRole}
+        title={`Delete "${confirmDeleteRole?.name}"?`}
+        description="Members with this role will lose their assigned permissions."
+        confirmText="Delete"
+        variant="danger"
+      />
     </div>
   );
 }

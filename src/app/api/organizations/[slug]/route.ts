@@ -1,16 +1,15 @@
 import { NextRequest } from 'next/server';
-import { requireAuth, requireOrgAccess, requireOrgOwner } from '@/backend/middleware/auth';
+import { requireOrgAccess, requireOrgOwner, handleAuthError } from '@/backend/middleware/auth';
 import { success, handleZodError, error, notFound } from '@/backend/utils/api-response';
 import { updateOrganizationSchema } from '@/backend/schemas';
 import { organizationService } from '@/backend/services';
-
 /**
  * GET /api/organizations/[slug] - Get organization by slug
  * PUT /api/organizations/[slug] - Update organization
  * DELETE /api/organizations/[slug] - Delete organization
  */
 export async function GET(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
@@ -23,10 +22,20 @@ export async function GET(
     }
 
     // Check if user is a member
-    const { user } = await requireAuth();
-    const isMember = organization.members.some(m => m.userId === user.id);
-    if (!isMember) {
-      return error('Access denied', 403);
+    const auth = await requireOrgAccess(organization.id, 'member');
+
+    // Non-admins see org info but not full member list
+    const myMembership = organization.members.find((m) => m.userId === auth.id);
+    const isAdmin = myMembership?.role === 'owner' || myMembership?.role === 'admin';
+
+    if (!isAdmin) {
+      // Strip member details for non-admin members
+      const { members, ...orgPublic } = organization;
+      return success({
+        ...orgPublic,
+        memberCount: members.length,
+        _count: organization._count,
+      });
     }
 
     return success(organization);
@@ -67,7 +76,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
@@ -87,21 +96,6 @@ export async function DELETE(
     console.error('Delete organization error:', err);
     const response = handleAuthError(err);
     if (response) return response;
-    return handleZodError(err);
+    return error('Internal server error', 500);
   }
-}
-
-/**
- * Helper to handle auth errors
- */
-function handleAuthError(err: unknown) {
-  if (err instanceof Error) {
-    if (err.message === 'Unauthorized') {
-      return error('Unauthorized', 401);
-    }
-    if (err.message === 'Access denied' || err.message.includes('access required')) {
-      return error(err.message, 403);
-    }
-  }
-  return null;
 }

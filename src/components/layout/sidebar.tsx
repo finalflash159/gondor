@@ -7,7 +7,7 @@ import { signOut } from 'next-auth/react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Logo } from '@/components/logo';
-import { Settings, Users, LogOut, Key, RefreshCw, FolderOpen, Plug, Shield, FileText, Bell, CreditCard, Building2, ChevronDown, Plus, Loader2 } from 'lucide-react';
+import { Settings, Users, LogOut, Key, RefreshCw, FolderOpen, Plug, Shield, FileText, Bell, CreditCard, Building2, ChevronDown, Plus, Loader2, Mail } from 'lucide-react';
 
 interface UserData {
   id: string;
@@ -26,6 +26,8 @@ interface SidebarProps {
   user: UserData | null;
   collapsed?: boolean;
   organizationSlug?: string | null;
+  orgRole?: 'owner' | 'admin' | 'member' | null;
+  currentProjectId?: string | null;
   unreadAlerts?: number;
 }
 
@@ -41,7 +43,7 @@ interface NavGroup {
   items: NavItem[];
 }
 
-function SidebarComponent({ user, collapsed = false, organizationSlug, unreadAlerts = 0 }: SidebarProps) {
+function SidebarComponent({ user, collapsed = false, organizationSlug, orgRole, currentProjectId, unreadAlerts = 0 }: SidebarProps) {
   const pathname = usePathname();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loadingOrgs, setLoadingOrgs] = useState(false);
@@ -77,6 +79,8 @@ function SidebarComponent({ user, collapsed = false, organizationSlug, unreadAle
   // Build base href based on org slug
   const baseHref = organizationSlug ? `/organizations/${organizationSlug}` : '/organizations';
 
+  const isAdmin = orgRole === 'owner' || orgRole === 'admin';
+
   // Only show navigation when org is selected
   const navGroups = useMemo<NavGroup[]>(() => {
     if (!organizationSlug) return [];
@@ -90,6 +94,7 @@ function SidebarComponent({ user, collapsed = false, organizationSlug, unreadAle
           { label: 'Secret Rotation', href: `${baseHref}/secret-rotation`, icon: <RefreshCw className="h-4 w-4" />, badge: 'New' },
           { label: 'Folders', href: `${baseHref}/folders`, icon: <FolderOpen className="h-4 w-4" /> },
           { label: 'Integrations', href: `${baseHref}/integrations`, icon: <Plug className="h-4 w-4" /> },
+          ...(currentProjectId && isAdmin ? [{ label: 'Members', href: `${baseHref}/projects/${currentProjectId}/members`, icon: <Users className="h-4 w-4" /> }] : []),
         ],
       },
       {
@@ -105,11 +110,24 @@ function SidebarComponent({ user, collapsed = false, organizationSlug, unreadAle
         items: [
           { label: 'Settings', href: `${baseHref}/settings`, icon: <Settings className="h-4 w-4" /> },
           { label: 'Members', href: `${baseHref}/members`, icon: <Users className="h-4 w-4" /> },
+          { label: 'Invitations', href: `${baseHref}/invitations`, icon: <Mail className="h-4 w-4" /> },
           { label: 'Billing', href: `${baseHref}/billing`, icon: <CreditCard className="h-4 w-4" /> },
         ],
       },
-    ];
-  }, [baseHref, unreadAlerts, organizationSlug]);
+    ].map(group => ({
+      ...group,
+      // Hide Settings group for non-admin/member (shouldn't happen but safety check)
+      items: group.items.filter(item => {
+        // Non-members never see Settings group items
+        if (!orgRole) return false;
+        // All roles see Secrets, Folders, Alerts
+        if (['Secrets', 'Dynamic Secrets', 'Secret Rotation', 'Folders', 'Integrations', 'Audit Logs', 'Alerts'].includes(item.label)) return true;
+        // Only admin/owner see Settings, Members, Invitations, Billing, Access Control
+        if (['Settings', 'Members', 'Invitations', 'Billing', 'Access Control'].includes(item.label)) return isAdmin;
+        return true;
+      }),
+    })).filter(group => group.items.length > 0);
+  }, [baseHref, unreadAlerts, organizationSlug, orgRole, isAdmin, currentProjectId]);
 
   const isActive = useCallback((href: string) => {
     return pathname === href;
@@ -342,9 +360,11 @@ function SidebarComponent({ user, collapsed = false, organizationSlug, unreadAle
             {!collapsed && (
               <div className="flex-1 overflow-hidden">
                 <p className="truncate text-sm font-medium text-foreground">
-                  {user.name || 'User'}
+                  {user.name || user.email.split('@')[0]}
                 </p>
-                <p className="truncate text-[10px] text-muted-foreground">Admin</p>
+                <p className="truncate text-[10px] text-muted-foreground capitalize">
+                  {orgRole || 'Member'}
+                </p>
               </div>
             )}
           </div>
@@ -352,7 +372,7 @@ function SidebarComponent({ user, collapsed = false, organizationSlug, unreadAle
 
         {/* Settings & Sign out */}
         <div className={cn('mt-2 space-y-0.5', collapsed && 'flex flex-col items-center')}>
-          {organizationSlug && (
+          {organizationSlug && isAdmin && (
             <Link
               href={`/organizations/${organizationSlug}/settings`}
               className={cn(

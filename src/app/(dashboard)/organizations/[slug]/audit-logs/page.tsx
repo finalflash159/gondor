@@ -1,11 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import { FileText, Filter, RefreshCw } from 'lucide-react';
+import { FileText, Filter, RefreshCw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+
+interface ProjectInfo {
+  id: string;
+  name: string;
+  ownerId: string;
+  members?: { userId: string }[];
+}
 
 interface AuditLog {
   id: string;
@@ -28,29 +35,58 @@ export default function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  const [hasAccess, setHasAccess] = useState(false);
 
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     setLoading(true);
     try {
-      // For now, we'll get logs from all projects in the org
-      const res = await fetch(`/api/projects?orgSlug=${slug}`);
-      if (res.ok) {
-        const projects = await res.json();
+      const [orgRes, sessionRes] = await Promise.all([
+        fetch(`/api/organizations/${slug}`),
+        fetch('/api/auth/session'),
+      ]);
 
-        // Fetch audit logs for each project
+      let currentUserId: string | null = null;
+      if (orgRes.ok && sessionRes.ok) {
+        const orgJson = await orgRes.json();
+        const orgData = orgJson?.data ?? orgJson;
+        const sessionJson = await sessionRes.json();
+        currentUserId = sessionJson?.user?.id ?? null;
+        const myMembership = orgData?.members?.find(
+          (m: { userId: string }) => m.userId === currentUserId
+        );
+        const isAdmin = myMembership?.role === 'owner' || myMembership?.role === 'admin';
+
+        // Member chỉ thấy logs từ projects họ có quyền
+        // Admin/owner thấy tất cả projects
+        const allProjects: ProjectInfo[] = orgData?.projects ?? [];
+        const accessibleProjects = isAdmin
+          ? allProjects
+          : allProjects.filter(
+              (p) => p.ownerId === currentUserId || (p.members ?? []).some((m) => m.userId === currentUserId)
+            );
+
+        if (accessibleProjects.length === 0) {
+          setHasAccess(false);
+          setLogs([]);
+          setLoading(false);
+          return;
+        }
+        setHasAccess(true);
+
+        // Fetch audit logs for accessible projects
         const allLogs: AuditLog[] = [];
-        for (const project of projects) {
+        for (const project of accessibleProjects) {
           const logsRes = await fetch(`/api/projects/${project.id}/audit-logs`);
           if (logsRes.ok) {
             const projectLogs = await logsRes.json();
-            allLogs.push(...projectLogs.map((log: AuditLog) => ({
+            const data = Array.isArray(projectLogs) ? projectLogs : (projectLogs?.data ?? []);
+            allLogs.push(...data.map((log: AuditLog) => ({
               ...log,
               projectName: project.name,
             })));
           }
         }
 
-        // Sort by date descending
         allLogs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setLogs(allLogs);
       }
@@ -59,12 +95,11 @@ export default function AuditLogsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [slug]);
 
   useEffect(() => {
     fetchLogs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug]);
+  }, [fetchLogs]);
 
   const getActionColor = (action: string) => {
     switch (action) {
@@ -82,6 +117,28 @@ export default function AuditLogsPage() {
   const filteredLogs = filter === 'all'
     ? logs
     : logs.filter(log => log.targetType === filter);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!hasAccess) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="h-12 w-12 rounded-full bg-danger/10 flex items-center justify-center mb-4">
+          <FileText className="h-6 w-6 text-danger" />
+        </div>
+        <h2 className="text-lg font-semibold text-foreground mb-1">Chưa có quyền truy cập</h2>
+        <p className="text-sm text-muted-foreground max-w-sm">
+          Bạn chưa được thêm vào project nào. Liên hệ admin để được cấp quyền xem audit logs.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -115,9 +172,7 @@ export default function AuditLogsPage() {
       {/* Logs List */}
       <Card className="bg-card border-border">
         <CardContent className="p-0">
-          {loading ? (
-            <div className="p-8 text-center text-muted-foreground">Loading...</div>
-          ) : filteredLogs.length === 0 ? (
+          {filteredLogs.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground">No audit logs found</div>
           ) : (
             <div className="divide-y divide-border">

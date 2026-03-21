@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { requireProjectAccess } from '@/backend/middleware/auth';
+import { requireProjectAccess, handleAuthError } from '@/backend/middleware/auth';
 import { success, handleZodError, error, notFound } from '@/backend/utils/api-response';
 import { updateProjectSchema } from '@/backend/schemas';
 import { projectService } from '@/backend/services';
@@ -67,9 +67,9 @@ export async function DELETE(
       return notFound('Project not found');
     }
 
-    // Only owner can delete, unless they have project:delete permission
+    // Only owner or users with project:delete permission can delete
     if (!isOwner) {
-      return error('Only owner can delete project', 403);
+      return error('Only owner or users with project:delete permission can delete project', 403);
     }
 
     await projectService.delete(id, user.id);
@@ -80,22 +80,4 @@ export async function DELETE(
     if (response) return response;
     return handleZodError(err);
   }
-}
-
-/**
- * Helper to handle auth errors
- */
-function handleAuthError(err: unknown) {
-  if (err instanceof Error) {
-    if (err.message === 'Unauthorized') {
-      return error('Unauthorized', 401);
-    }
-    if (err.message === 'Access denied' || err.message === 'Admin access required') {
-      return error(err.message, 403);
-    }
-    if (err.message === 'Project not found') {
-      return notFound(err.message);
-    }
-  }
-  return null;
 }
