@@ -58,7 +58,7 @@ Every new project comes with three default roles:
 | Role | Permissions |
 |------|-------------|
 | Admin | Full access |
-| Editor | Read and write secrets |
+| Developer | secret:read, secret:write, folder:manage |
 | Viewer | Read-only |
 
 ### Permission Types
@@ -68,27 +68,21 @@ Every new project comes with three default roles:
 | `secret:read` | View secret keys and values |
 | `secret:write` | Create and update secrets |
 | `secret:delete` | Delete secrets |
-| `secret:export` | Export secrets |
-| `environment:manage` | Create, update, delete environments |
 | `folder:manage` | Create, update, delete folders |
 | `member:manage` | Add and remove project members |
-| `role:manage` | Create, update, delete roles |
-| `project:settings` | Update project settings |
+| `settings:manage` | Update project settings |
 | `project:delete` | Delete project |
 
 ### Project Permissions Matrix
 
-| Permission | Admin | Editor | Viewer |
-|------------|-------|--------|--------|
+| Permission | Admin | Developer | Viewer |
+|------------|-------|-----------|--------|
 | secret:read | ✓ | ✓ | ✓ |
 | secret:write | ✓ | ✓ | ✗ |
 | secret:delete | ✓ | ✗ | ✗ |
-| secret:export | ✓ | ✓ | ✗ |
-| environment:manage | ✓ | ✗ | ✗ |
-| folder:manage | ✓ | ✗ | ✗ |
+| folder:manage | ✓ | ✓ | ✗ |
 | member:manage | ✓ | ✗ | ✗ |
-| role:manage | ✓ | ✗ | ✗ |
-| project:settings | ✓ | ✗ | ✗ |
+| settings:manage | ✓ | ✗ | ✗ |
 | project:delete | ✓ | ✗ | ✗ |
 
 ---
@@ -113,8 +107,6 @@ Every new project comes with three default roles:
   "permissions": [
     "secret:read",
     "secret:write",
-    "secret:export",
-    "environment:manage",
     "folder:manage"
   ]
 }

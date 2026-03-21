@@ -1,152 +1,266 @@
-# Gondor - Secret Management
+# Gondor — Secret Management
 
-A modern, secure secret management application for teams and organizations. Store, organize, and manage your sensitive credentials with enterprise-grade encryption.
-
-![Gondor Secret Management](./docs/images/Gondor-pm-preview.png)
+A modern, secure secret management application for teams and organizations. Store, organize, and manage sensitive credentials with enterprise-grade encryption.
 
 ## Features
 
-### Organization & Project Management
-- Create and manage multiple organizations
-- Organize projects within organizations
-- Team collaboration with role-based access control
-
 ### Secret Management
-- **AES-256-GCM Encryption**: All secrets are encrypted at rest
-- **Version History**: Track changes with full version history
-- **Multi-Environment**: Support for dev, staging, production environments
-- **Folder Organization**: Hierarchical folder structure for secrets
-- **Import/Export**: Import from .env files, export to multiple formats
+- **AES-256-GCM Encryption**: All secrets encrypted at rest
+- **Multi-Environment**: Separate dev, staging, production environments
+- **Folder Organization**: Hierarchical folder structure
+- **Version History**: Full audit trail of secret changes
+- **Secret Expiry**: Set expiration dates with alert notifications
+
+### Team Collaboration
+- **Two-Level RBAC**: Org-level (owner/admin/member) + project-level (custom roles)
+- **Invite Codes**: Secure team onboarding via org invitation codes
+- **Audit Logging**: Complete activity history per project
+- **Member Autocomplete**: Fast member search when adding to projects
+
+### Integrations
+- **Dynamic Secrets**: Auto-rotating database credentials (PostgreSQL, MySQL, MongoDB, Redis)
+- **Scheduled Rotation**: Cron-based credential rotation
+- **External Integrations**: AWS, Azure, GitHub, Slack (encrypted config at rest)
 
 ### Security
-- **Role-Based Access Control (RBAC)**: Granular permissions at org and project level
-- **Audit Logging**: Complete activity history
-- **Secret Expiry**: Set expiration dates for sensitive credentials
-- **Organization Isolation**: Complete data separation between organizations
+- **Organization Isolation**: Complete data separation between tenants
+- **Rate Limiting**: Sliding window limits on auth endpoints
+- **JWT Sessions**: NextAuth v5 with httpOnly session cookies
 
-### Notifications
-- **Alert System**: Stay informed about important events
-- **Secret Expiry Alerts**: Get notified before secrets expire
-- **Security Alerts**: Monitor for security concerns
+---
 
 ## Tech Stack
 
-- **Frontend**: Next.js 14, React 18, Tailwind CSS
-- **Backend**: Next.js API Routes
-- **Database**: PostgreSQL with Prisma ORM
-- **Authentication**: NextAuth.js with JWT
-- **Encryption**: AES-256-GCM
+| Layer | Technology |
+|-------|------------|
+| Framework | Next.js 14.2 (App Router) |
+| Language | TypeScript |
+| Database | PostgreSQL + Prisma ORM |
+| Auth | NextAuth v5 (credentials + JWT) |
+| Encryption | AES-256-GCM |
+| Styling | Tailwind CSS + next-themes |
+| State | React Query (partial) |
+
+---
 
 ## Getting Started
 
 ### Prerequisites
 
 - Node.js 18+
-- PostgreSQL 14+
+- PostgreSQL 14+ (or Docker)
 
-### Installation
+### 1. Clone & Install
 
 ```bash
-# Clone the repository
-git clone https://github.com/finalflash159/gondor.git
+git clone <repo-url>
 cd gondor
-
-# Install dependencies
 npm install
+```
 
-# Set up environment variables
+### 2. Environment Variables
+
+```bash
 cp .env.example .env
-# Edit .env with your database URL and secrets
+# Edit .env — set DATABASE_URL, NEXTAUTH_SECRET, AUTH_SECRET, MASTER_KEY
+```
 
-# Initialize database
-npx prisma migrate dev --name init
+Required variables:
 
-# Start development server
+```env
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/secret_manager"
+NEXTAUTH_URL="http://localhost:3002"
+NEXTAUTH_SECRET="same-as-AUTH_SECRET-min-32-chars"
+AUTH_SECRET="same-as-NEXTAUTH_SECRET-min-32-chars"
+MASTER_KEY="32-byte-hex-key-openssl-rand-hex-32"
+SUPER_MASTER_ADMIN=false
+CRON_SECRET="any-secret-string"
+```
+
+> **Important**: `AUTH_SECRET` must equal `NEXTAUTH_SECRET` (NextAuth v5 requirement).
+
+### 3. Database Setup
+
+```bash
+# Option A: Docker (recommended for dev)
+docker compose -f docker-compose.dev.yml up -d
+npx prisma db push
+npx prisma generate
+
+# Option B: Local Postgres
+npx prisma db push
+npx prisma generate
+```
+
+### 4. Create First Admin
+
+```bash
+npm run bootstrap -- --email admin@gondor.dev --password "Admin123456!" --name "Admin"
+```
+
+### 5. Start Dev Server
+
+```bash
 npm run dev
 ```
 
-Visit [http://localhost:3002](http://localhost:3002) to start.
+Open [http://localhost:3002](http://localhost:3002) and login with `admin@gondor.dev` / `Admin123456!`.
 
-### Environment Variables
+---
 
-```env
-DATABASE_URL="postgresql://user:password@localhost:5432/db"
-NEXTAUTH_URL="http://localhost:3002"
-NEXTAUTH_SECRET="your-secret-key-min-32-chars"
-MASTER_KEY="your-32-byte-encryption-key"
-SUPER_MASTER_ADMIN=false
-CRON_SECRET="your-cron-secret"
-```
-
-### Bootstrap
-
-After setting up the database, create the first admin account:
+## Docker Production
 
 ```bash
-npm run bootstrap
-# Interactive mode: follow prompts for email, password, name, super-master flag
+# Full reset + setup (one command)
+docker compose -f docker-compose.prod.yml down -v && \
+docker compose -f docker-compose.prod.yml build --no-cache && \
+docker compose -f docker-compose.prod.yml up -d && \
+sleep 5 && \
+docker compose -f docker-compose.prod.yml exec app npm run bootstrap -- \
+  --email admin@gondor.dev --password "Admin123456!" --name "Admin"
+```
 
-# Or non-interactive (CI/automation):
-npm run bootstrap -- --email admin@example.com --password Secret123! --name "Admin"
+App runs at [http://localhost:3000](http://localhost:3000).
+
+See `setup.md` for detailed Docker setup instructions.
+
+---
+
+## Bootstrap CLI
+
+```bash
+# Interactive
+npm run bootstrap
+
+# Non-interactive
+npm run bootstrap -- --email admin@example.com --password "Secret123!" --name "Admin"
 
 # Help
 npm run bootstrap -- --help
 ```
 
-**CLI flags:**
-
 | Flag | Description |
 |------|-------------|
-| `--email <email>` | Admin email (required in non-interactive mode) |
-| `--password <pass>` | Admin password, min 8 characters (required in non-interactive mode) |
-| `--name <name>` | Display name (optional) |
-| `--help`, `-h` | Show help |
-
-**Validation rules:**
-- Email must be valid format (contain `@`)
-- Password must be at least 8 characters
-- Script exits early if the database already has users
+| `--email` | Admin email (required non-interactive) |
+| `--password` | Password, min 8 chars (required non-interactive) |
+| `--name` | Display name |
+| `--help` | Show help |
 
 **Behavior:**
-- Exits with code 0 if users already exist (no action taken)
-- Password hashed with bcrypt, cost factor 12
-- Checks database connection before any action
-- `isMasterAdmin` flag is written to the `User` record and controls org creation rights (see below)
+- Exits silently if users already exist
+- Password hashed with bcrypt cost 12
+- `isMasterAdmin=true` on the created user
 
-**`SUPER_MASTER_ADMIN=true`:**
-- Only the bootstrap admin (`isMasterAdmin=true`) can create organizations
-- All other users must register via org invite codes
+**`SUPER_MASTER_ADMIN=true`**: Only the bootstrap admin can create organizations. All other users must register via org invite codes.
 
-**`SUPER_MASTER_ADMIN=false`:**
-- Any authenticated user can create an organization
-- Bootstrap admin is a regular user with no special privileges
+**`SUPER_MASTER_ADMIN=false`**: Any authenticated user can create organizations.
+
+---
 
 ## Project Structure
 
 ```
 src/
-├── app/                 # Next.js App Router
-│   ├── (auth)/         # Authentication pages
-│   ├── (dashboard)/    # Protected dashboard pages
-│   └── api/           # API routes
-├── components/         # React components
-├── lib/                # Core libraries
-│   ├── services/      # Business logic
-│   ├── schemas/       # Zod validation
-│   ├── auth.ts        # NextAuth config
-│   ├── encryption.ts  # AES-256-GCM
-│   └── permissions.ts # RBAC
-└── types/              # TypeScript types
+├── app/
+│   ├── (auth)/           # /login, /register
+│   ├── (dashboard)/      # Protected pages
+│   │   └── organizations/[slug]/
+│   │       ├── page.tsx                 # Org overview + projects
+│   │       ├── projects/[projectId]/
+│   │       │   ├── page.tsx             # Secrets, envs, team
+│   │       │   └── members/page.tsx
+│   │       ├── access-control/           # Project RBAC
+│   │       ├── alerts/
+│   │       ├── audit-logs/
+│   │       ├── dynamic-secrets/
+│   │       ├── folders/
+│   │       ├── integrations/
+│   │       ├── invitations/
+│   │       ├── members/
+│   │       ├── secret-rotation/
+│   │       └── settings/
+│   └── api/              # 40+ API routes
+├── backend/
+│   ├── services/         # 13 services (secret, project, org, etc.)
+│   ├── middleware/       # auth, permissions, rate-limit
+│   └── schemas/          # Zod validation
+├── components/           # UI + layout components
+├── hooks/                # React Query hooks
+└── lib/                  # auth, encryption, db, query-provider
 ```
 
-## Documentation
+---
 
-See the [docs](./docs) directory for detailed documentation:
+## API Overview
 
-- [Architecture](./docs/architecture/SYSTEM_ARCHITECTURE.md)
-- [Database Schema](./docs/database/SCHEMA.md)
-- [API Reference](./docs/api/API_OVERVIEW.md)
-- [Setup Guide](./docs/setup/LOCAL_SETUP.md)
+All API routes (except auth) require an authenticated session cookie.
+
+### Response Format
+
+```typescript
+// Success
+{ success: true, data: { ... } }
+
+// Error
+{ error: "message", success: false }
+```
+
+### Auth
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/auth/[...nextauth]` | NextAuth handler |
+| GET | `/api/auth/session` | Get current session |
+| POST | `/api/auth/register` | Register with invite code (rate-limited 3/min) |
+
+### Projects
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/projects` | List user's projects |
+| POST | `/api/projects` | Create project |
+| GET | `/api/projects/[id]` | Get project |
+| PATCH | `/api/projects/[id]` | Update project |
+| DELETE | `/api/projects/[id]` | Delete project |
+| GET | `/api/projects/[id]/secrets` | List secrets |
+| POST | `/api/projects/[id]/secrets` | Create/update secrets |
+| GET | `/api/projects/[id]/members/search` | Search org members for autocomplete |
+| GET | `/api/projects/[id]/roles` | List project roles |
+| POST | `/api/projects/[id]/roles` | Create role |
+| DELETE | `/api/projects/[id]/roles/[roleId]` | Delete role |
+
+### Organizations
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/organizations` | List user's orgs |
+| POST | `/api/organizations` | Create org |
+| GET | `/api/organizations/[slug]` | Get org + projects |
+| PATCH | `/api/organizations/[slug]` | Update org |
+| GET | `/api/organizations/[slug]/members` | List org members |
+| POST | `/api/organizations/[slug]/invitations` | Create invite code |
+| DELETE | `/api/organizations/[slug]/invitations/[id]` | Revoke invite |
+| POST | `/api/organizations/[slug]/invitations/[id]/regenerate` | Regenerate code |
+
+### Dynamic Secrets
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/projects/[id]/dynamic-secrets` | List dynamic secrets |
+| POST | `/api/projects/[id]/dynamic-secrets` | Create dynamic secret |
+| DELETE | `/api/projects/[id]/dynamic-secrets/[id]` | Delete |
+| GET | `/api/projects/[id]/rotation-jobs` | List rotation jobs |
+| POST | `/api/projects/[id]/rotation-jobs` | Create rotation job |
+| PATCH | `/api/projects/[id]/rotation-jobs/[id]` | Update job |
+| DELETE | `/api/projects/[id]/rotation-jobs/[id]` | Delete job |
+
+### Cron
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/cron/rotation` | Trigger secret rotation (protected by `CRON_SECRET`) |
+
+---
 
 ## License
 

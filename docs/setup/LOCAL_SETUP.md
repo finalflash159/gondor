@@ -2,201 +2,102 @@
 
 ## Prerequisites
 
-Before starting, ensure you have the following installed:
+| Requirement | Version |
+|-------------|---------|
+| Node.js | 18+ |
+| PostgreSQL | 14+ (or Docker) |
+| npm | 9+ |
 
-| Requirement | Version | Notes |
-|-------------|---------|-------|
-| Node.js | 18+ | LTS recommended |
-| PostgreSQL | 14+ | Local or Docker |
-| npm | 9+ | Comes with Node.js |
-
----
-
-## Step 1: Clone the Repository
+## Step 1: Clone & Install
 
 ```bash
-git clone <repository-url>
-cd secret-management
-```
-
----
-
-## Step 2: Install Dependencies
-
-```bash
+git clone <repo-url>
+cd gondor
 npm install
 ```
 
----
+## Step 2: Environment Variables
+
+```bash
+cp .env.example .env
+# Edit .env with your values
+```
+
+Required variables:
+
+```env
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/secret_manager"
+NEXTAUTH_URL="http://localhost:3002"
+NEXTAUTH_SECRET="super-secret-key-change-in-production-minimum-32-chars"
+AUTH_SECRET="super-secret-key-change-in-production-minimum-32-chars"
+MASTER_KEY="your-32-byte-master-key-here!!!"
+SUPER_MASTER_ADMIN=false
+CRON_SECRET="any_secret"
+```
+
+Generate secrets:
+```bash
+openssl rand -hex 32
+```
 
 ## Step 3: Database Setup
 
-### Option A: Local PostgreSQL
+### Option A: Docker Postgres (recommended)
 
-1. Install PostgreSQL locally
-2. Create a database:
+```bash
+docker compose -f docker-compose.dev.yml up -d
+```
 
+### Option B: Local Postgres
+
+Create database:
 ```bash
 createdb secret_manager
 ```
 
-3. Update `.env` with your database URL:
-
-```env
-DATABASE_URL="postgresql://username:password@localhost:5432/secret_manager"
-```
-
-### Option B: Docker PostgreSQL
-
-1. Start PostgreSQL container:
-
+Then initialize:
 ```bash
-docker run -d \
-  --name secret-manager-db \
-  -e POSTGRES_DB=secret_manager \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=postgres \
-  -p 5432:5432 \
-  postgres:14
+npx prisma db push
+npx prisma generate
 ```
 
-2. Set database URL:
-
-```env
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/secret_manager"
-```
-
----
-
-## Step 4: Environment Variables
-
-Create a `.env` file in the root directory:
-
-```env
-# Database
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/secret_manager"
-
-# NextAuth
-NEXTAUTH_URL="http://localhost:3002"
-NEXTAUTH_SECRET="your-secret-key-min-32-characters-long"
-
-# Encryption (for AES-256-GCM)
-ENCRYPTION_KEY="your-32-byte-encryption-key-here"
-```
-
-**Generating Secrets:**
-
-```bash
-# Generate NEXTAUTH_SECRET
-openssl rand -base64 32
-
-# Generate ENCRYPTION_KEY
-openssl rand -hex 32
-```
-
----
-
-## Step 5: Initialize Database
-
-Run Prisma migrations to create tables:
-
-```bash
-npx prisma migrate dev --name init
-```
-
-This will create all the database tables based on the schema.
-
----
-
-## Step 6: Start Development Server
+## Step 4: Start Dev Server
 
 ```bash
 npm run dev
 ```
 
-The application will start at `http://localhost:3002`
+App starts at `http://localhost:3002`
 
----
-
-## Step 7: Create First User
-
-1. Navigate to `http://localhost:3002/register`
-2. Fill in the registration form:
-   - Email
-   - Password (min 8 characters)
-   - Name (optional)
-3. Click "Create Account"
-
----
-
-## Step 8: Create Organization
-
-1. After login, click "Create Organization"
-2. Enter organization name (e.g., "My Team")
-3. Enter unique slug (e.g., "my-team")
-4. Click "Create"
-
----
-
-## Verification
-
-### Check Database Tables
+## Step 5: Bootstrap First Admin
 
 ```bash
-npx prisma studio
+npm run bootstrap -- --email admin@gondor.dev --password "Admin123456!" --name "Admin"
 ```
 
-This opens Prisma Studio to view your data.
-
-### Test API
-
-```bash
-# Login
-curl -X POST http://localhost:3002/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"user@example.com","password":"password123"}'
-```
-
----
+Login at `http://localhost:3002` with `admin@gondor.dev` / `Admin123456!`
 
 ## Common Issues
 
 ### "Database connection refused"
+- PostgreSQL is not running
+- Check `DATABASE_URL` is correct
 
-- Ensure PostgreSQL is running
-- Check DATABASE_URL is correct
-- Verify PostgreSQL accepts connections
-
-### "NextAuth_SECRET error"
-
-- Ensure NEXTAUTH_SECRET is set
-- Must be at least 32 characters
+### "AUTH_SECRET / NEXTAUTH_SECRET mismatch"
+- Both must be set to the **same value**
+- NextAuth v5 requires `AUTH_SECRET` in addition to `NEXTAUTH_SECRET`
 
 ### "Prisma schema out of sync"
-
 ```bash
-npx prisma migrate dev
+npx prisma db push
+npx prisma generate
 ```
-
----
 
 ## Additional Commands
 
 ```bash
-# Reset database (development only)
-npx prisma migrate reset
-
-# Generate Prisma client
-npx prisma generate
-
-# Push schema changes (prototyping)
-npx prisma db push
+npx prisma studio          # Open database GUI
+npx prisma migrate dev     # Create migrations
+npm run lint               # Run ESLint
+npm run build              # Production build
 ```
-
----
-
-## Next Steps
-
-- Review [Environment Variables](./ENVIRONMENT.md) for production settings
-- Set up [API Documentation](../api/API_OVERVIEW.md)
-- Configure authentication for production
