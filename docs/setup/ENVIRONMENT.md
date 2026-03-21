@@ -2,139 +2,68 @@
 
 ## Overview
 
-This document describes all environment variables used in the Secret Manager application.
+All environment variables for Gondor Secret Management. Copy `.env.example` to `.env` and fill in values.
 
 ## Required Variables
 
-### Database
-
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@localhost:5432/db` |
-
----
-
-### Authentication
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `NEXTAUTH_URL` | Application URL | `http://localhost:3002` or `https://secrets.yourdomain.com` |
-| `NEXTAUTH_SECRET` | Secret for JWT signing | Run: `openssl rand -base64 32` |
-
----
-
-### Encryption
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `MASTER_KEY` | Master key for AES-256-GCM encryption (all secrets) | Run: `openssl rand -hex 32` |
-
----
-
-## Optional Variables
-
-### Application
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `NODE_ENV` | Node environment | `development` |
-| `PORT` | Server port | `3002` |
-
----
-
-### Registration
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `ALLOW_SELF_REGISTRATION` | Allow open registration (disable for invite-only) | `false` |
-
-### Master Invite Code
-
-Set `MASTER_INVITE_CODE` to enable single-use master admin registration. When set, `ALLOW_SELF_REGISTRATION` is ignored.
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `MASTER_INVITE_CODE` | One-time use master invite code. First user to register with this code becomes master admin. | `K9xMn2pQ` |
-
----
-
-### Cron Jobs
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `CRON_SECRET` | Bearer token secret for protecting the rotation cron endpoint | Run: `openssl rand -hex 32` |
-
----
+| `DATABASE_URL` | PostgreSQL connection string | `postgresql://postgres:postgres@localhost:5432/secret_manager` |
+| `NEXTAUTH_URL` | Application URL | `http://localhost:3002` |
+| `NEXTAUTH_SECRET` | NextAuth JWT signing secret | `openssl rand -hex 32` |
+| `AUTH_SECRET` | Must equal `NEXTAUTH_SECRET` (NextAuth v5 requirement) | `openssl rand -hex 32` |
+| `MASTER_KEY` | AES-256 master key (32 bytes) | `openssl rand -hex 32` |
+| `CRON_SECRET` | Protects `/api/cron/rotation` endpoint | Any string |
+| `SUPER_MASTER_ADMIN` | `true` = only bootstrap admin can create orgs; `false` = any user | `false` |
+| `NODE_ENV` | `development` or `production` | `development` |
+| `PORT` | App port (dev only; Docker prod uses 3000) | `3002` |
 
 ## Generating Secrets
 
-### NEXTAUTH_SECRET
-
 ```bash
-# Using openssl
-openssl rand -base64 32
-
-# Using Node.js
-node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
-```
-
-### MASTER_KEY
-
-```bash
-# Using openssl (hex format)
+# Generate AUTH_SECRET / NEXTAUTH_SECRET (must be same value)
 openssl rand -hex 32
 
-# Using Node.js
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+# Generate MASTER_KEY
+openssl rand -hex 32
+
+# Generate CRON_SECRET
+openssl rand -hex 32
 ```
 
----
+## Super Master Admin
+
+| `SUPER_MASTER_ADMIN` | Bootstrap Admin | Other Users |
+|----------------------|----------------|-------------|
+| `false` | Regular admin | Can create orgs freely |
+| `true` | Only one who can create orgs | Must register via invite code |
 
 ## Production Checklist
 
-Before deploying to production, ensure:
+- [ ] `DATABASE_URL` points to production PostgreSQL
+- [ ] `NEXTAUTH_URL` set to production domain
+- [ ] `NEXTAUTH_SECRET` = `AUTH_SECRET` (both must be set)
+- [ ] `MASTER_KEY` generated with `openssl rand -hex 32`
+- [ ] `NODE_ENV=production`
+- [ ] `CRON_SECRET` set for rotation cron endpoint
 
-- [ ] `NEXTAUTH_SECRET` is set to a strong random value
-- [ ] `MASTER_KEY` is set to a strong random value
-- [ ] `DATABASE_URL` points to a production PostgreSQL instance
-- [ ] `NEXTAUTH_URL` is set to your production domain
-- [ ] `NODE_ENV` is set to `production`
-- [ ] `CRON_SECRET` is set to a strong random value (for rotation cron endpoint)
-
----
-
-## Example Production .env
+## Example .env
 
 ```env
-# Database (Production)
-DATABASE_URL="postgresql://user:password@prod-db.example.com:5432/secret_manager"
-
-# Authentication
-NEXTAUTH_URL="https://secrets.yourdomain.com"
-NEXTAUTH_SECRET="your-secure-random-secret-at-least-32-chars"
-
-# Encryption (master key for AES-256-GCM)
-MASTER_KEY="your-64-character-hex-master-key"
-
-# Registration
-ALLOW_SELF_REGISTRATION="false"
-MASTER_INVITE_CODE="your-secure-invite-code"
-
-# Cron Jobs
-CRON_SECRET="your-64-character-hex-cron-secret"
-
-# Application
-NODE_ENV="production"
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/secret_manager"
+NEXTAUTH_URL="http://localhost:3002"
+NEXTAUTH_SECRET="super-secret-key-change-in-production-minimum-32-chars"
+AUTH_SECRET="super-secret-key-change-in-production-minimum-32-chars"
+MASTER_KEY="your-32-byte-master-key-here!!!"
+SUPER_MASTER_ADMIN=false
+CRON_SECRET="any_secret"
+NODE_ENV="development"
 PORT="3002"
 ```
 
----
-
 ## Security Notes
 
-1. **Never commit secrets**: Add `.env` to `.gitignore`
-2. **Rotate regularly**: Update secrets periodically
-3. **Use different secrets**: Don't use same secrets across environments
-4. **Monitor access**: Keep your `.env` file secure
-5. **Use secrets management**: Consider using AWS Secrets Manager, HashiCorp Vault, or similar for production
-6. **MASTER_KEY is critical**: This key encrypts ALL secrets. If lost, data cannot be recovered. Backup securely.
+1. **Never commit `.env`** — it's already in `.gitignore`
+2. **`MASTER_KEY` is critical** — encrypts ALL secrets. If lost, data is unrecoverable
+3. **`AUTH_SECRET` = `NEXTAUTH_SECRET`** — NextAuth v5 requires both; they must match
+4. **Rotate regularly** — update secrets in production periodically

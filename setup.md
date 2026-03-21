@@ -1,4 +1,4 @@
-# Setup Guide — Secret Management (Gondor)
+# Setup Guide — Gondor Secret Management
 
 ## Prerequisites
 
@@ -7,77 +7,93 @@
 
 ---
 
-## 1. Clean Up (xóa container + database)
+## 1. Clean Up
 
 ```bash
-# Stop all running containers
-docker compose -f docker-compose.prod.yml down
-
-# Remove Docker volumes — DELETES all data (database, secrets, users)
+# Stop and remove containers + volumes (deletes ALL data)
 docker compose -f docker-compose.prod.yml down -v
-
-# Also clean dev containers if running
 docker compose -f docker-compose.dev.yml down -v
 ```
 
 ---
 
-## 2. Rebuild & Start (build lại + chạy container)
+## 2. Dev Mode (local app + Docker Postgres)
 
 ```bash
-# Rebuild app image with fresh code (no cache)
+# Start Postgres only
+docker compose -f docker-compose.dev.yml up -d
+
+# Initialize database
+npx prisma db push
+npx prisma generate
+
+# Start dev server (port 3002)
+npm run dev
+
+# Create first admin
+npm run bootstrap -- --email admin@gondor.dev --password "Admin123456!" --name "Admin"
+```
+
+App: http://localhost:3002
+Prisma Studio: `npx prisma studio`
+
+---
+
+## 3. Docker Production Mode
+
+**Bootstrap credentials via environment variables** (set in `.env` or directly):
+
+```bash
+# Set in .env first:
+# BOOTSTRAP_EMAIL="admin@gondor.dev"
+# BOOTSTRAP_PASSWORD="Admin123456!"
+# BOOTSTRAP_NAME="Admin"
+
+# Rebuild image
 docker compose -f docker-compose.prod.yml build --no-cache
 
-# Start all services (postgres + app) in background
+# Start containers — bootstrap admin is created automatically on first startup
 docker compose -f docker-compose.prod.yml up -d
+```
 
-# See logs live (optional — run in separate terminal)
-docker compose -f docker-compose.prod.yml up
+App: http://localhost:3000
+Login: `admin@gondor.dev` / `Admin123456!`
+
+---
+
+## 4. Quick Full Reset (Docker prod)
+
+```bash
+# Set bootstrap vars, then reset + rebuild + start (admin auto-created on startup)
+BOOTSTRAP_EMAIL="admin@gondor.dev" \
+BOOTSTRAP_PASSWORD="Admin123456!" \
+BOOTSTRAP_NAME="Admin" \
+docker compose -f docker-compose.prod.yml down -v && \
+docker compose -f docker-compose.prod.yml build --no-cache && \
+docker compose -f docker-compose.prod.yml up -d
 ```
 
 ---
 
-## 3. Database Setup (tạo bảng)
-
-Database schema được apply **tự động** khi container start (qua `db push` trong entrypoint của Dockerfile).
-
-Nếu cần chạy thủ công hoặc dùng `migrate` thay vì `db push`:
+## 5. Prisma Commands
 
 ```bash
-# Xem trạng thái migration
-docker compose -f docker-compose.prod.yml exec app npx prisma migrate status
-
-# Tạo migration mới (khi có thay đổi schema)
-docker compose -f docker-compose.prod.yml exec app npx prisma migrate dev --name add_new_table
-
-# Hoặc push schema trực tiếp (không tạo migration)
+# Inside Docker container (prod)
 docker compose -f docker-compose.prod.yml exec app npx prisma db push
-
-# Generate Prisma client
-docker compose -f docker-compose.prod.yml exec app npx prisma generate
-
-# Reset database (xóa hết bảng rồi tạo lại)
+docker compose -f docker-compose.prod.yml exec app npx prisma migrate dev --name <name>
+docker compose -f docker-compose.prod.yml exec app npx prisma migrate status
 docker compose -f docker-compose.prod.yml exec app npx prisma db push --force-reset
+docker compose -f docker-compose.prod.yml exec app npx prisma studio
+
+# Local (dev mode)
+npx prisma db push
+npx prisma migrate dev --name <name>
+npx prisma studio
 ```
 
 ---
 
-## 4. Bootstrap Admin User (tạo admin đầu tiên)
-
-```bash
-# Interactive mode
-docker compose -f docker-compose.prod.yml exec app npm run bootstrap
-
-# Non-interactive (copy-paste one-liner)
-docker compose -f docker-compose.prod.yml exec app npm run bootstrap -- \
-  --email admin@gondor.dev \
-  --password "Admin123456!" \
-  --name "Admin"
-```
-
----
-
-## 5. Verify (kiểm tra)
+## 6. Verify
 
 ```bash
 # Check container status
@@ -86,72 +102,36 @@ docker compose -f docker-compose.prod.yml ps
 # Check app logs
 docker compose -f docker-compose.prod.yml logs app --tail=20
 
-# Check postgres logs
+# Check Postgres logs
 docker compose -f docker-compose.prod.yml logs postgres --tail=5
-
-# Open Prisma Studio (database GUI in browser)
-docker compose -f docker-compose.prod.yml exec app npx prisma studio
 ```
 
----
-
-## 6. Quick Full Reset (reset nhanh — một lệnh)
-
-```bash
-# Stop → xóa data → rebuild → start → tự động setup DB → tạo admin
-docker compose -f docker-compose.prod.yml down -v && \
-docker compose -f docker-compose.prod.yml build --no-cache && \
-docker compose -f docker-compose.prod.yml up -d && \
-sleep 5 && \
-docker compose -f docker-compose.prod.yml exec app npx prisma db push && \
-docker compose -f docker-compose.prod.yml exec app npx prisma generate && \
-docker compose -f docker-compose.prod.yml exec app npm run bootstrap -- \
-  --email admin@gondor.dev \
-  --password "Admin123456!" \
-  --name "Admin"
-```
-
----
-
-## 7. Dev Mode (chạy local, không Docker app)
-
-```bash
-# Chỉ start postgres
-docker compose -f docker-compose.dev.yml up -d
-
-# Chạy Prisma: tạo bảng trong database
-npx prisma db push
-
-# Generate Prisma client
-npx prisma generate
-
-# Terminal khác: chạy dev server
-npm run dev
-
-# Tạo admin đầu tiên
-npm run bootstrap
-```
+Login: admin@gondor.dev / Admin123456!
 
 ---
 
 ## Environment Variables
 
-File `.env` cần có đủ các biến sau:
+Copy `.env.example` to `.env` and set:
 
 ```env
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/secret_manager"
-NEXTAUTH_URL="http://localhost:3000"
-NEXTAUTH_SECRET="super-secret-key-change-in-production-minimum-32-chars"
-AUTH_SECRET="super-secret-key-change-in-production-minimum-32-chars"
-MASTER_KEY="your-32-byte-master-key-here!!!"
+NEXTAUTH_URL="http://localhost:3002"         # dev: 3002, prod Docker: http://localhost:3000
+NEXTAUTH_SECRET="same-minimum-32-char-secret"
+AUTH_SECRET="same-minimum-32-char-secret"
+MASTER_KEY="32-byte-key-openssl-rand-hex-32"
 SUPER_MASTER_ADMIN=false
-CRON_SECRET="any_secret"
+CRON_SECRET="any-secret-string"
 ```
 
-> **Lưu ý:** `AUTH_SECRET` phải giống `NEXTAUTH_SECRET` (NextAuth v5 yêu cầu cả hai).
+> **Critical**: `AUTH_SECRET` must equal `NEXTAUTH_SECRET` (NextAuth v5 requirement).
 
-## Mở app
+---
 
-Sau khi setup xong:
-- **App:** http://localhost:3000
-- **Login:** admin@gondor.dev / Admin123456!
+## Ports Reference
+
+| Setup | App Port | Postgres |
+|-------|----------|----------|
+| `npm run dev` (local app) | **3002** | localhost:5432 |
+| `docker-compose.dev.yml` | **3002** | localhost:5432 (exposed) |
+| `docker-compose.prod.yml` | **3000** | internal only (not exposed) |
