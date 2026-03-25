@@ -1,17 +1,63 @@
-import { chromium, FullConfig } from '@playwright/test';
+import fs from 'node:fs/promises';
+import { chromium, type FullConfig } from '@playwright/test';
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+import {
+  E2E_ADMIN_EMAIL,
+  E2E_ADMIN_PASSWORD,
+  E2E_ADMIN_STORAGE_PATH,
+  E2E_BASE_URL,
+  E2E_FIXTURE_PATH,
+  E2E_MEMBER_EMAIL,
+  E2E_MEMBER_PASSWORD,
+  E2E_MEMBER_STORAGE_PATH,
+  E2E_ORG_NAME,
+  E2E_ORG_SLUG,
+  E2E_PROJECT_NAME,
+  E2E_PROJECT_SLUG,
+  E2E_RUNTIME_DIR,
+} from './test-config';
 
-const BASE = 'http://localhost:3000';
-const ADMIN_EMAIL = 'admin@gondor.dev';
-const ADMIN_PASS = 'Admin123456!';
-const MEMBER_EMAIL = 'member@test.dev';
-const MEMBER_PASS = 'Member123456!';
+const prisma = new PrismaClient();
 
-async function loginForStorageState(email: string, password: string) {
+const DEFAULT_ROLE_FIXTURES = [
+  {
+    slug: 'admin',
+    name: 'Admin',
+    permissions: [
+      'secret:read',
+      'secret:write',
+      'secret:delete',
+      'folder:manage',
+      'member:manage',
+      'settings:manage',
+    ],
+    isDefault: false,
+  },
+  {
+    slug: 'developer',
+    name: 'Developer',
+    permissions: ['secret:read', 'secret:write', 'folder:manage'],
+    isDefault: false,
+  },
+  {
+    slug: 'viewer',
+    name: 'Viewer',
+    permissions: ['secret:read'],
+    isDefault: true,
+  },
+] as const;
+
+async function loginForStorageState(
+  email: string,
+  password: string,
+  storagePath: string
+) {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext();
   const page = await context.newPage();
 
-  await page.goto(`${BASE}/login`);
+  await page.goto(`${E2E_BASE_URL}/login`);
   await page.waitForSelector('#email', { timeout: 15000 });
   await page.fill('#email', email);
   await page.fill('#password', password);
@@ -21,10 +67,10 @@ async function loginForStorageState(email: string, password: string) {
   await page.waitForURL((url) => !url.toString().includes('/login'), { timeout: 15000 });
 
   // Call session from inside the browser so the session cookie is sent
-  const session = await page.evaluate(async (base) => {
-    const resp = await fetch(`${base}/api/auth/session`);
+  const session = await page.evaluate(async (baseUrl) => {
+    const resp = await fetch(`${baseUrl}/api/auth/session`);
     return resp.json();
-  }, BASE);
+  }, E2E_BASE_URL);
 
   if (!session?.user) {
     throw new Error(`Login failed for ${email}: session = ${JSON.stringify(session)}`);
@@ -40,20 +86,244 @@ async function loginForStorageState(email: string, password: string) {
 
   // Save storage state
   const storage = await context.storageState();
+  await fs.writeFile(storagePath, JSON.stringify(storage, null, 2));
   await browser.close();
-  return storage;
+}
+
+async function ensureUser(
+  email: string,
+  password: string,
+  name: string,
+  isMasterAdmin: boolean
+) {
+  const hashedPassword = await bcrypt.hash(password, 12);
+
+  return prisma.user.upsert({
+    where: { email },
+    update: {
+      name,
+      password: hashedPassword,
+      isMasterAdmin,
+    },
+    create: {
+      email,
+      name,
+      password: hashedPassword,
+      isMasterAdmin,
+    },
+  });
+}
+
+async function ensureProjectRole(
+  projectId: string,
+  role: (typeof DEFAULT_ROLE_FIXTURES)[number]
+) {
+  return prisma.role.upsert({
+    where: {
+      projectId_slug: {
+        projectId,
+        slug: role.slug,
+      },
+    },
+    update: {
+      name: role.name,
+      permissions: role.permissions,
+      isDefault: role.isDefault,
+    },
+    create: {
+      projectId,
+      slug: role.slug,
+      name: role.name,
+      permissions: role.permissions,
+      isDefault: role.isDefault,
+    },
+  });
+}
+
+async function ensureFixtureData() {
+  const admin = await ensureUser(
+    E2E_ADMIN_EMAIL,
+    E2E_ADMIN_PASSWORD,
+    'E2E Admin',
+    true
+  );
+  const member = await ensureUser(
+    E2E_MEMBER_EMAIL,
+    E2E_MEMBER_PASSWORD,
+    'E2E Member',
+    false
+  );
+
+  const organization = await prisma.organization.upsert({
+    where: { slug: E2E_ORG_SLUG },
+    update: { name: E2E_ORG_NAME },
+    create: {
+      name: E2E_ORG_NAME,
+      slug: E2E_ORG_SLUG,
+    },
+  });
+
+  await prisma.orgMember.upsert({
+    where: {
+      userId_orgId: {
+        userId: admin.id,
+        orgId: organization.id,
+      },
+    },
+    update: { role: 'owner' },
+    create: {
+      userId: admin.id,
+      orgId: organization.id,
+      role: 'owner',
+    },
+  });
+
+  await prisma.orgMember.upsert({
+    where: {
+      userId_orgId: {
+        userId: member.id,
+        orgId: organization.id,
+      },
+    },
+    update: { role: 'member' },
+    create: {
+      userId: member.id,
+      orgId: organization.id,
+      role: 'member',
+    },
+  });
+
+  const project = await prisma.project.upsert({
+    where: {
+      orgId_slug: {
+        orgId: organization.id,
+        slug: E2E_PROJECT_SLUG,
+      },
+    },
+    update: {
+      name: E2E_PROJECT_NAME,
+      ownerId: admin.id,
+    },
+    create: {
+      name: E2E_PROJECT_NAME,
+      slug: E2E_PROJECT_SLUG,
+      orgId: organization.id,
+      ownerId: admin.id,
+    },
+  });
+
+  await prisma.project.deleteMany({
+    where: {
+      orgId: organization.id,
+      slug: {
+        startsWith: 'e2e-test-',
+      },
+    },
+  });
+
+  const [adminRole, viewerRole] = await Promise.all(
+    DEFAULT_ROLE_FIXTURES.map((role) => ensureProjectRole(project.id, role))
+  ).then((roles) => [
+    roles.find((role) => role.slug === 'admin'),
+    roles.find((role) => role.slug === 'viewer'),
+  ]);
+
+  if (!adminRole || !viewerRole) {
+    throw new Error('Failed to create project roles for E2E fixture');
+  }
+
+  await prisma.projectMember.upsert({
+    where: {
+      userId_projectId: {
+        userId: admin.id,
+        projectId: project.id,
+      },
+    },
+    update: { roleId: adminRole.id },
+    create: {
+      userId: admin.id,
+      projectId: project.id,
+      roleId: adminRole.id,
+    },
+  });
+
+  await prisma.projectMember.upsert({
+    where: {
+      userId_projectId: {
+        userId: member.id,
+        projectId: project.id,
+      },
+    },
+    update: { roleId: viewerRole.id },
+    create: {
+      userId: member.id,
+      projectId: project.id,
+      roleId: viewerRole.id,
+    },
+  });
+
+  const environments = [
+    { slug: 'dev', name: 'Development' },
+    { slug: 'staging', name: 'Staging' },
+    { slug: 'prod', name: 'Production' },
+  ];
+
+  for (const environment of environments) {
+    await prisma.projectEnvironment.upsert({
+      where: {
+        projectId_slug: {
+          projectId: project.id,
+          slug: environment.slug,
+        },
+      },
+      update: { name: environment.name },
+      create: {
+        projectId: project.id,
+        slug: environment.slug,
+        name: environment.name,
+      },
+    });
+  }
+
+  await prisma.secret.deleteMany({
+    where: { projectId: project.id },
+  });
+
+  await fs.mkdir(E2E_RUNTIME_DIR, { recursive: true });
+  await fs.writeFile(
+    E2E_FIXTURE_PATH,
+    JSON.stringify(
+      {
+        orgSlug: organization.slug,
+        projectId: project.id,
+        projectSlug: project.slug,
+        adminEmail: admin.email,
+        memberEmail: member.email,
+      },
+      null,
+      2
+    )
+  );
 }
 
 export default async (_config: FullConfig): Promise<void> => {
-  console.log('Setting up Playwright RBAC test sessions...');
+  console.log('Setting up Playwright fixtures and auth state...');
 
-  const adminStorage = await loginForStorageState(ADMIN_EMAIL, ADMIN_PASS);
-  const memberStorage = await loginForStorageState(MEMBER_EMAIL, MEMBER_PASS);
+  await prisma.$connect();
+  try {
+    await ensureFixtureData();
+  } finally {
+    await prisma.$disconnect();
+  }
 
-  const fs = await import('fs');
-  fs.writeFileSync('e2e/.admin-storage.json', JSON.stringify(adminStorage));
-  fs.writeFileSync('e2e/.member-storage.json', JSON.stringify(memberStorage));
-  console.log(
-    `Session files created: e2e/.admin-storage.json (${adminStorage.cookies.length} cookies), e2e/.member-storage.json (${memberStorage.cookies.length} cookies)`
+  await loginForStorageState(
+    E2E_ADMIN_EMAIL,
+    E2E_ADMIN_PASSWORD,
+    E2E_ADMIN_STORAGE_PATH
+  );
+  await loginForStorageState(
+    E2E_MEMBER_EMAIL,
+    E2E_MEMBER_PASSWORD,
+    E2E_MEMBER_STORAGE_PATH
   );
 };

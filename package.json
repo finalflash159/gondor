@@ -4,9 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3002",
+    "dev:test": "APP_PORT=${APP_PORT:-3002} next dev -H 127.0.0.1 -p ${APP_PORT:-3002}",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test",
+    "test:all": "npm run lint && npm run typecheck && npm run build && npm run test:e2e",
     "bootstrap": "npx prisma db seed",
     "seed:demo": "ts-node --compiler-options '{\"module\":\"commonjs\"}' prisma/seed-demo.ts"
   },

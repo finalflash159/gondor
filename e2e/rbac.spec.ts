@@ -1,16 +1,24 @@
 import { test, expect } from '@playwright/test';
+import {
+  E2E_ADMIN_STORAGE_PATH,
+  E2E_MEMBER_STORAGE_PATH,
+  E2E_ORG_SLUG,
+  readRuntimeFixture,
+} from './test-config';
 
-const BASE = 'http://localhost:3000';
-const ORG_SLUG = 'test-org';
-const PROJECT_ID = 'cmmzs72cy0005c230m042h4k1';
+const ORG_SLUG = E2E_ORG_SLUG;
+
+function getProjectId() {
+  return readRuntimeFixture().projectId;
+}
 
 // ─── Admin RBAC UI Tests ──────────────────────────────────────────────────────
 
 test.describe('Admin RBAC UI', () => {
-  test.use({ storageState: './e2e/.admin-storage.json' });
+  test.use({ storageState: E2E_ADMIN_STORAGE_PATH });
 
   test('Admin can see "New Project" button on org page', async ({ page }) => {
-    await page.goto(`${BASE}/organizations/${ORG_SLUG}`);
+    await page.goto(`/organizations/${ORG_SLUG}`);
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
     const newProjectBtn = page
@@ -20,28 +28,28 @@ test.describe('Admin RBAC UI', () => {
   });
 
   test('Admin can see "Settings" in org header', async ({ page }) => {
-    await page.goto(`${BASE}/organizations/${ORG_SLUG}`);
+    await page.goto(`/organizations/${ORG_SLUG}`);
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
     await expect(page.getByRole('link', { name: /settings/i }).first()).toBeVisible();
   });
 
   test('Admin can access /settings page', async ({ page }) => {
-    await page.goto(`${BASE}/organizations/${ORG_SLUG}/settings`);
+    await page.goto(`/organizations/${ORG_SLUG}/settings`);
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
     await expect(page.getByRole('heading', { name: /settings/i }).first()).toBeVisible({ timeout: 5000 });
   });
 
   test('Admin can access /members page', async ({ page }) => {
-    await page.goto(`${BASE}/organizations/${ORG_SLUG}/members`);
+    await page.goto(`/organizations/${ORG_SLUG}/members`);
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
     await expect(page.getByRole('heading', { name: /members/i })).toBeVisible({ timeout: 5000 });
   });
 
   test('Admin can see "Invite Member" on members page', async ({ page }) => {
-    await page.goto(`${BASE}/organizations/${ORG_SLUG}/members`);
+    await page.goto(`/organizations/${ORG_SLUG}/members`);
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
     await expect(
@@ -50,35 +58,35 @@ test.describe('Admin RBAC UI', () => {
   });
 
   test('Admin can access /integrations page (no block)', async ({ page }) => {
-    await page.goto(`${BASE}/organizations/${ORG_SLUG}/integrations`);
+    await page.goto(`/organizations/${ORG_SLUG}/integrations`);
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
     await expect(page.getByText(/access restricted/i)).not.toBeVisible({ timeout: 3000 });
   });
 
   test('Admin can access /invitations page', async ({ page }) => {
-    await page.goto(`${BASE}/organizations/${ORG_SLUG}/invitations`);
+    await page.goto(`/organizations/${ORG_SLUG}/invitations`);
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
     await expect(page.getByText(/access restricted/i)).not.toBeVisible({ timeout: 3000 });
   });
 
   test('Admin can access /access-control page', async ({ page }) => {
-    await page.goto(`${BASE}/organizations/${ORG_SLUG}/access-control`);
+    await page.goto(`/organizations/${ORG_SLUG}/access-control`);
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
     await expect(page.getByText(/access restricted/i)).not.toBeVisible({ timeout: 3000 });
   });
 
   test('Admin can access /dynamic-secrets page', async ({ page }) => {
-    await page.goto(`${BASE}/organizations/${ORG_SLUG}/dynamic-secrets`);
+    await page.goto(`/organizations/${ORG_SLUG}/dynamic-secrets`);
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
     await expect(page.getByText(/access restricted/i)).not.toBeVisible({ timeout: 3000 });
   });
 
   test('Admin can see project detail page with secrets', async ({ page }) => {
-    await page.goto(`${BASE}/organizations/${ORG_SLUG}/projects/${PROJECT_ID}`);
+    await page.goto(`/organizations/${ORG_SLUG}/projects/${getProjectId()}`);
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
     await expect(page.getByText(/access restricted/i)).not.toBeVisible({ timeout: 3000 });
@@ -89,17 +97,17 @@ test.describe('Admin RBAC UI', () => {
 // ─── Member RBAC UI Tests ───────────────────────────────────────────────────
 
 test.describe('Member RBAC UI', () => {
-  test.use({ storageState: './e2e/.member-storage.json' });
+  test.use({ storageState: E2E_MEMBER_STORAGE_PATH });
 
   test('Member can see org page', async ({ page }) => {
-    await page.goto(`${BASE}/organizations/${ORG_SLUG}`);
+    await page.goto(`/organizations/${ORG_SLUG}`);
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
     await expect(page.getByRole('heading').first()).toBeVisible({ timeout: 5000 });
   });
 
   test('Member CANNOT see "New Project" button on org page', async ({ page }) => {
-    await page.goto(`${BASE}/organizations/${ORG_SLUG}`);
+    await page.goto(`/organizations/${ORG_SLUG}`);
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
     const btn = page
@@ -109,21 +117,21 @@ test.describe('Member RBAC UI', () => {
   });
 
   test('Member CANNOT see "Settings" link in org header', async ({ page }) => {
-    await page.goto(`${BASE}/organizations/${ORG_SLUG}`);
+    await page.goto(`/organizations/${ORG_SLUG}`);
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
     await expect(page.getByRole('link', { name: /^settings$/i })).not.toBeVisible({ timeout: 3000 });
   });
 
   test('Member is BLOCKED from /settings page', async ({ page }) => {
-    await page.goto(`${BASE}/organizations/${ORG_SLUG}/settings`);
+    await page.goto(`/organizations/${ORG_SLUG}/settings`);
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
     await expect(page.getByText(/access restricted/i)).toBeVisible({ timeout: 5000 });
   });
 
   test('Member CANNOT see "Invite Member" button', async ({ page }) => {
-    await page.goto(`${BASE}/organizations/${ORG_SLUG}/members`);
+    await page.goto(`/organizations/${ORG_SLUG}/members`);
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
     await expect(
@@ -132,42 +140,42 @@ test.describe('Member RBAC UI', () => {
   });
 
   test('Member is BLOCKED from /integrations page', async ({ page }) => {
-    await page.goto(`${BASE}/organizations/${ORG_SLUG}/integrations`);
+    await page.goto(`/organizations/${ORG_SLUG}/integrations`);
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
     await expect(page.getByText(/access restricted/i)).toBeVisible({ timeout: 5000 });
   });
 
   test('Member is BLOCKED from /invitations page', async ({ page }) => {
-    await page.goto(`${BASE}/organizations/${ORG_SLUG}/invitations`);
+    await page.goto(`/organizations/${ORG_SLUG}/invitations`);
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
     await expect(page.getByText(/access restricted/i)).toBeVisible({ timeout: 5000 });
   });
 
   test('Member is BLOCKED from /access-control page', async ({ page }) => {
-    await page.goto(`${BASE}/organizations/${ORG_SLUG}/access-control`);
+    await page.goto(`/organizations/${ORG_SLUG}/access-control`);
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
     await expect(page.getByText(/access restricted/i)).toBeVisible({ timeout: 5000 });
   });
 
   test('Member is BLOCKED from /dynamic-secrets page', async ({ page }) => {
-    await page.goto(`${BASE}/organizations/${ORG_SLUG}/dynamic-secrets`);
+    await page.goto(`/organizations/${ORG_SLUG}/dynamic-secrets`);
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
     await expect(page.getByText(/access restricted/i)).toBeVisible({ timeout: 5000 });
   });
 
   test('Member is BLOCKED from /folders page if no accessible projects', async ({ page }) => {
-    await page.goto(`${BASE}/organizations/${ORG_SLUG}/folders`);
+    await page.goto(`/organizations/${ORG_SLUG}/folders`);
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
     await expect(page.getByText(/access restricted/i)).toBeVisible({ timeout: 5000 });
   });
 
   test('Member sees project page but with no secrets', async ({ page }) => {
-    await page.goto(`${BASE}/organizations/${ORG_SLUG}/projects/${PROJECT_ID}`);
+    await page.goto(`/organizations/${ORG_SLUG}/projects/${getProjectId()}`);
     await page.waitForLoadState('load');
     await page.waitForTimeout(2000);
     await expect(page.getByText(/404/i)).not.toBeVisible({ timeout: 3000 });
@@ -175,7 +183,7 @@ test.describe('Member RBAC UI', () => {
   });
 
   test('Member CAN see global alerts page', async ({ page }) => {
-    await page.goto(`${BASE}/alerts`);
+    await page.goto('/alerts');
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
     await expect(page.getByText(/404/i)).not.toBeVisible({ timeout: 3000 });
@@ -185,13 +193,13 @@ test.describe('Member RBAC UI', () => {
 // ─── E2E Flow Tests ──────────────────────────────────────────────────────────
 
 test.describe('E2E — Admin flows', () => {
-  test.use({ storageState: './e2e/.admin-storage.json' });
+  test.use({ storageState: E2E_ADMIN_STORAGE_PATH });
 
   test('Admin can create a project and see it in the org page', async ({ page }) => {
     const projectName = `E2E Test Project ${Date.now()}`;
     const projectSlug = `e2e-test-${Date.now()}`;
 
-    await page.goto(`${BASE}/organizations/${ORG_SLUG}`);
+    await page.goto(`/organizations/${ORG_SLUG}`);
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
 
@@ -221,7 +229,7 @@ test.describe('E2E — Admin flows', () => {
 
   test('Admin can see Add Secret button on project page', async ({ page }) => {
     // Admin should be able to see the Add Secret button on their project
-    await page.goto(`${BASE}/organizations/${ORG_SLUG}/projects/${PROJECT_ID}`);
+    await page.goto(`/organizations/${ORG_SLUG}/projects/${getProjectId()}`);
     await page.waitForLoadState('load');
     await page.waitForTimeout(2000);
 
@@ -230,16 +238,18 @@ test.describe('E2E — Admin flows', () => {
     await expect(page.getByText(/access restricted/i)).not.toBeVisible({ timeout: 3000 });
 
     // Add Secret button should be visible for project admin/owner
-    await expect(page.getByRole('button', { name: /add secret/i })).toBeVisible({ timeout: 5000 });
+    await expect(
+      page.getByRole('button', { name: /add secret/i }).first()
+    ).toBeVisible({ timeout: 5000 });
   });
 });
 
 test.describe('E2E — Member flows', () => {
-  test.use({ storageState: './e2e/.member-storage.json' });
+  test.use({ storageState: E2E_MEMBER_STORAGE_PATH });
 
   test('Member login redirects to organizations page', async ({ page }) => {
     // Member is already logged in via storageState
-    await page.goto(`${BASE}/`);
+    await page.goto('/');
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
 
@@ -248,7 +258,7 @@ test.describe('E2E — Member flows', () => {
   });
 
   test('Member cannot see audit logs sidebar link', async ({ page }) => {
-    await page.goto(`${BASE}/organizations/${ORG_SLUG}`);
+    await page.goto(`/organizations/${ORG_SLUG}`);
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
 
@@ -259,7 +269,7 @@ test.describe('E2E — Member flows', () => {
   });
 
   test('Member can see the project list but not create one', async ({ page }) => {
-    await page.goto(`${BASE}/organizations/${ORG_SLUG}`);
+    await page.goto(`/organizations/${ORG_SLUG}`);
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
 
