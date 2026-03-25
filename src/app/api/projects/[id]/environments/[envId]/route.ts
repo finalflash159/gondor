@@ -14,7 +14,7 @@ export async function DELETE(
     const { id: projectId, envId } = await params;
     const { user } = await requireProjectAdmin(projectId);
 
-    await environmentService.delete(envId, user.id);
+    await environmentService.delete(projectId, envId, user.id);
     return success({ success: true });
   } catch (err) {
     console.error('Delete environment error:', err);
