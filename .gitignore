@@ -8,6 +8,8 @@
 
 # testing
 /coverage
+/playwright-report
+/test-results
 
 # next.js
 /.next/
@@ -37,3 +39,4 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+/e2e/.runtime/
