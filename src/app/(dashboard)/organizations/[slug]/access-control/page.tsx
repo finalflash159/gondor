@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Modal } from '@/components/ui/modal';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { useToast } from '@/components/ui/toast';
+import { normalizePermissionList } from '@/lib/permissions';
 
 interface Role {
   id: string;
@@ -170,10 +171,13 @@ export default function AccessControlPage() {
     setEditingRole(role);
     setRoleName(role.name);
     setRoleSlug(role.slug);
-    setRolePermissions((role.permissions as string[]) || []);
+    setRolePermissions(normalizePermissionList<string>(role.permissions));
     setRoleIsDefault(role.isDefault);
     setShowEditModal(true);
   };
+
+  const getRolePermissions = (role: Role) =>
+    normalizePermissionList<string>(role.permissions);
 
   const handleCreateRole = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -419,9 +423,9 @@ export default function AccessControlPage() {
                       )}
                     </div>
                   </div>
-                  {Array.isArray(role.permissions) && role.permissions.length > 0 && (
+                  {getRolePermissions(role).length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-1">
-                      {(role.permissions as string[]).map((perm) => (
+                      {getRolePermissions(role).map((perm) => (
                         <span
                           key={perm}
                           className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono"

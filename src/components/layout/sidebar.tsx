@@ -123,10 +123,10 @@ function SidebarComponent({ user, collapsed = false, organizationSlug, orgRole, 
       items: group.items.filter(item => {
         // Non-members never see Settings group items
         if (!orgRole) return false;
-        // All roles see Secrets, Folders, Alerts
-        if (['Secrets', 'Dynamic Secrets', 'Secret Rotation', 'Folders', 'Integrations', 'Audit Logs', 'Alerts'].includes(item.label)) return true;
-        // Only admin/owner see Settings, Members, Invitations, Billing, Access Control
-        if (['Settings', 'Members', 'Invitations', 'Billing', 'Access Control'].includes(item.label)) return isAdmin;
+        // All roles see project browsing and alerts
+        if (['Secrets', 'Dynamic Secrets', 'Secret Rotation', 'Folders', 'Integrations', 'Alerts'].includes(item.label)) return true;
+        // Only admin/owner see settings, audit, and management areas
+        if (['Settings', 'Members', 'Invitations', 'Billing', 'Access Control', 'Audit Logs'].includes(item.label)) return isAdmin;
         return true;
       }),
     })).filter(group => group.items.length > 0);
