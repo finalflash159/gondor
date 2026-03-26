@@ -1,6 +1,10 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
-import { requireOrgAccessBySlug, handleAuthError } from '@/backend/middleware/auth';
+import {
+  requireOrgAccessBySlug,
+  handleAuthError,
+  logUnexpectedRouteError,
+} from '@/backend/middleware/auth';
 import { success, error } from '@/backend/utils/api-response';
 import { invitationService } from '@/backend/services';
 import { z } from 'zod';
@@ -44,9 +48,9 @@ export async function GET(
       stats,
     });
   } catch (err) {
-    console.error('Get invitations error:', err);
     const response = handleAuthError(err);
     if (response) return response;
+    logUnexpectedRouteError('Get invitations error:', err);
     return error('Internal server error', 500);
   }
 }
@@ -90,9 +94,9 @@ export async function POST(
 
     return success(invitation, 201);
   } catch (err) {
-    console.error('Create invitation error:', err);
     const response = handleAuthError(err);
     if (response) return response;
+    logUnexpectedRouteError('Create invitation error:', err);
 
     if (err instanceof z.ZodError) {
       return error(err.issues[0].message, 400);

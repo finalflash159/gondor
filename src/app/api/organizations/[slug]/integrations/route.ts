@@ -1,5 +1,9 @@
 import { NextRequest } from 'next/server';
-import { requireOrgAccess, handleAuthError } from '@/backend/middleware/auth';
+import {
+  requireOrgAccess,
+  handleAuthError,
+  logUnexpectedRouteError,
+} from '@/backend/middleware/auth';
 import { success, error } from '@/backend/utils/api-response';
 import { organizationService, integrationService } from '@/backend/services';
 
@@ -25,9 +29,9 @@ export async function GET(
     const integrations = await integrationService.getByOrgId(organization.id);
     return success(integrations);
   } catch (err) {
-    console.error('Get integrations error:', err);
     const response = handleAuthError(err);
     if (response) return response;
+    logUnexpectedRouteError('Get integrations error:', err);
     return error('Internal server error', 500);
   }
 }
@@ -66,9 +70,9 @@ export async function POST(
 
     return success(integration, 201);
   } catch (err) {
-    console.error('Create integration error:', err);
     const response = handleAuthError(err);
     if (response) return response;
+    logUnexpectedRouteError('Create integration error:', err);
 
     if (err instanceof Error) {
       if (err.message.includes('already exists')) {
