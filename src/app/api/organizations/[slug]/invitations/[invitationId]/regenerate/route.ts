@@ -1,6 +1,10 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
-import { requireOrgAccessBySlug, handleAuthError } from '@/backend/middleware/auth';
+import {
+  requireOrgAccessBySlug,
+  handleAuthError,
+  logUnexpectedRouteError,
+} from '@/backend/middleware/auth';
 import { success, error } from '@/backend/utils/api-response';
 import { invitationService } from '@/backend/services';
 
@@ -38,9 +42,9 @@ export async function POST(
 
     return success(regenerated);
   } catch (err) {
-    console.error('Regenerate invitation error:', err);
     const response = handleAuthError(err);
     if (response) return response;
+    logUnexpectedRouteError('Regenerate invitation error:', err);
     return error('Internal server error', 500);
   }
 }

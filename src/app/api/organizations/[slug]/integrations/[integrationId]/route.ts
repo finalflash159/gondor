@@ -1,5 +1,9 @@
 import { NextRequest } from 'next/server';
-import { requireOrgAccess, handleAuthError } from '@/backend/middleware/auth';
+import {
+  requireOrgAccess,
+  handleAuthError,
+  logUnexpectedRouteError,
+} from '@/backend/middleware/auth';
 import { success, error } from '@/backend/utils/api-response';
 import { organizationService, integrationService } from '@/backend/services';
 
@@ -31,9 +35,9 @@ export async function GET(
 
     return success(integration);
   } catch (err) {
-    console.error('Get integration error:', err);
     const response = handleAuthError(err);
     if (response) return response;
+    logUnexpectedRouteError('Get integration error:', err);
     return error('Internal server error', 500);
   }
 }
@@ -67,9 +71,9 @@ export async function PUT(
     const updated = await integrationService.update(integrationId, updateData);
     return success(updated);
   } catch (err) {
-    console.error('Update integration error:', err);
     const response = handleAuthError(err);
     if (response) return response;
+    logUnexpectedRouteError('Update integration error:', err);
     return error('Internal server error', 500);
   }
 }
@@ -96,9 +100,9 @@ export async function DELETE(
     await integrationService.delete(integrationId, organization.id, orgAccess.id);
     return success({ success: true });
   } catch (err) {
-    console.error('Delete integration error:', err);
     const response = handleAuthError(err);
     if (response) return response;
+    logUnexpectedRouteError('Delete integration error:', err);
     return error('Internal server error', 500);
   }
 }
@@ -137,9 +141,9 @@ export async function POST(
 
     return error('Invalid action', 400);
   } catch (err) {
-    console.error('Integration action error:', err);
     const response = handleAuthError(err);
     if (response) return response;
+    logUnexpectedRouteError('Integration action error:', err);
     return error('Internal server error', 500);
   }
 }

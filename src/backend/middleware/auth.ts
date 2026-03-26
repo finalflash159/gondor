@@ -247,6 +247,27 @@ export function handleAuthError(error: unknown): ReturnType<typeof unauthorized>
 }
 
 /**
+ * Logs only unexpected route errors.
+ * Expected auth and access-control denials should not pollute server logs.
+ */
+export function logUnexpectedRouteError(context: string, error: unknown) {
+  if (isAuthError(error) && [401, 403, 404].includes(error.status)) {
+    return;
+  }
+
+  if (
+    error instanceof Error &&
+    ['Unauthorized', 'Access denied', 'Insufficient permissions'].includes(
+      error.message
+    )
+  ) {
+    return;
+  }
+
+  console.error(context, error);
+}
+
+/**
  * Type guard for auth errors
  */
 function isAuthError(error: unknown): error is { status: number; message: string } {

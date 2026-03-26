@@ -1,5 +1,9 @@
 import { NextRequest } from 'next/server';
-import { requireProjectAccess, handleAuthError } from '@/backend/middleware/auth';
+import {
+  requireProjectAccess,
+  handleAuthError,
+  logUnexpectedRouteError,
+} from '@/backend/middleware/auth';
 import { success, error } from '@/backend/utils/api-response';
 import { db } from '@/lib/db';
 import { z } from 'zod';
@@ -37,9 +41,9 @@ export async function GET(
 
     return success(role);
   } catch (err) {
-    console.error('Get role error:', err);
     const response = handleAuthError(err);
     if (response) return response;
+    logUnexpectedRouteError('Get role error:', err);
     return error('Internal server error', 500);
   }
 }
@@ -87,9 +91,9 @@ export async function PUT(
     if (err instanceof z.ZodError) {
       return error(err.issues[0].message, 400);
     }
-    console.error('Update role error:', err);
     const response = handleAuthError(err);
     if (response) return response;
+    logUnexpectedRouteError('Update role error:', err);
     return error('Internal server error', 500);
   }
 }
@@ -122,9 +126,9 @@ export async function DELETE(
 
     return success({ success: true });
   } catch (err) {
-    console.error('Delete role error:', err);
     const response = handleAuthError(err);
     if (response) return response;
+    logUnexpectedRouteError('Delete role error:', err);
     return error('Internal server error', 500);
   }
 }

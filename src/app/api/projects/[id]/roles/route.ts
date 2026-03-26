@@ -1,5 +1,9 @@
 import { NextRequest } from 'next/server';
-import { requireProjectAccess, handleAuthError } from '@/backend/middleware/auth';
+import {
+  requireProjectAccess,
+  handleAuthError,
+  logUnexpectedRouteError,
+} from '@/backend/middleware/auth';
 import { success, error } from '@/backend/utils/api-response';
 import { db } from '@/lib/db';
 import { z } from 'zod';
@@ -34,9 +38,9 @@ export async function GET(
 
     return success(roles);
   } catch (err) {
-    console.error('Get roles error:', err);
     const response = handleAuthError(err);
     if (response) return response;
+    logUnexpectedRouteError('Get roles error:', err);
     return error('Internal server error', 500);
   }
 }
@@ -84,9 +88,9 @@ export async function POST(
     if (err instanceof z.ZodError) {
       return error(err.issues[0].message, 400);
     }
-    console.error('Create role error:', err);
     const response = handleAuthError(err);
     if (response) return response;
+    logUnexpectedRouteError('Create role error:', err);
     return error('Internal server error', 500);
   }
 }

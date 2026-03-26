@@ -113,7 +113,7 @@ test.describe('Admin RBAC UI', () => {
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
     await expect(page.getByText(/access restricted/i)).not.toBeVisible({ timeout: 3000 });
-    await expect(page.getByText(/404/i)).not.toBeVisible({ timeout: 3000 });
+    await expect(page.getByRole('heading', { name: /^secrets$/i })).toBeVisible({ timeout: 5000 });
   });
 });
 
@@ -201,7 +201,7 @@ test.describe('Member RBAC UI', () => {
     await page.goto(`/organizations/${ORG_SLUG}/projects/${getProjectId()}`);
     await page.waitForLoadState('load');
     await page.waitForTimeout(2000);
-    await expect(page.getByText(/404/i)).not.toBeVisible({ timeout: 3000 });
+    await expect(page.getByRole('heading', { name: /^secrets$/i })).toBeVisible({ timeout: 5000 });
     await expect(page.getByText(/no secrets/i).first()).toBeVisible({ timeout: 5000 });
   });
 
@@ -209,7 +209,7 @@ test.describe('Member RBAC UI', () => {
     await page.goto('/alerts');
     await page.waitForLoadState('load');
     await page.waitForTimeout(1500);
-    await expect(page.getByText(/404/i)).not.toBeVisible({ timeout: 3000 });
+    await expect(page.getByRole('heading', { name: /^notifications$/i })).toBeVisible({ timeout: 5000 });
   });
 });
 
@@ -256,8 +256,8 @@ test.describe('E2E — Admin flows', () => {
     await page.waitForTimeout(2000);
 
     // Verify page loaded and no access restriction
-    await expect(page.getByText(/404/i)).not.toBeVisible({ timeout: 3000 });
     await expect(page.getByText(/access restricted/i)).not.toBeVisible({ timeout: 3000 });
+    await expect(page.getByRole('heading', { name: /^secrets$/i })).toBeVisible({ timeout: 5000 });
 
     const headerAddSecretButton = page
       .getByRole('banner')
