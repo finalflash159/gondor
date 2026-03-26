@@ -992,26 +992,30 @@ export default function ProjectSecretsPage() {
   }
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full flex-col gap-3 xl:flex-row">
       {/* Main Content */}
-      <div className={`flex-1 min-w-0 flex flex-col overflow-hidden ${selectedSecretId ? 'pr-2' : ''}`}>
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* Header */}
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">
-            <Link href={`/organizations/${slug}`} className="p-1.5 hover:bg-muted rounded-md transition-colors">
+            <Link
+              href={`/organizations/${slug}`}
+              aria-label="Back to organization"
+              className="rounded-md p-1.5 transition-colors hover:bg-muted"
+            >
               <ArrowLeft className="h-4 w-4 text-muted-foreground" />
             </Link>
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-primary">
                 <Key className="h-4 w-4 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-base font-bold text-foreground">Secrets</h1>
-                <p className="text-xs text-muted-foreground">{activeEnvData?.name}</p>
+                <h1 className="text-lg font-semibold text-foreground">Secrets</h1>
+                <p className="text-sm text-muted-foreground">{activeEnvData?.name}</p>
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
             {(canManageSettings || isProjectOwner) && (
               <Button variant="ghost" size="sm" onClick={() => setShowSettingsModal(true)}>
                 <Settings className="h-4 w-4 mr-1" />
@@ -1028,26 +1032,26 @@ export default function ProjectSecretsPage() {
         </div>
 
         {/* Environment Tabs */}
-        <div className="flex items-center gap-1 mb-4 p-1 bg-card rounded-lg border border-border w-fit">
+        <div className="mb-5 flex w-fit flex-wrap items-center gap-1 rounded-lg border border-border bg-card p-1">
           {environments.map((env) => (
             <button
               key={env.id}
               onClick={() => setActiveEnv(env.id)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1.5 ${
+              className={`flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-all ${
                 activeEnv === env.id
                   ? 'bg-primary text-primary-foreground'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               }`}
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${activeEnv === env.id ? 'bg-primary-foreground' : getEnvDot(env.slug)}`} />
+              <span className={`size-1.5 rounded-full ${activeEnv === env.id ? 'bg-primary-foreground' : getEnvDot(env.slug)}`} />
               {env.name}
             </button>
           ))}
         </div>
 
         {/* Search & Filter Bar */}
-        <div className="flex items-center gap-2 mb-4">
-          <div className="relative flex-1 max-w-[320px]">
+        <div className="mb-5 flex flex-col gap-2 lg:flex-row lg:items-center">
+          <div className="relative w-full lg:max-w-[360px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               data-testid="secret-search"
@@ -1055,40 +1059,42 @@ export default function ProjectSecretsPage() {
               placeholder="Search secrets..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-8 rounded-lg border border-border bg-card pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-ring focus:ring-1 focus:ring-ring"
+              className="h-10 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-ring focus:ring-1 focus:ring-ring"
             />
           </div>
-          <select
-            data-testid="secret-filter"
-            aria-label="Filter secrets"
-            value={visibilityFilter}
-            onChange={(event) =>
-              setVisibilityFilter(event.target.value as SecretVisibilityFilter)
-            }
-            className="h-8 rounded-lg border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus:border-ring focus:ring-1 focus:ring-ring"
-          >
-            <option value="all">All secrets</option>
-            <option value="hidden">Hidden only</option>
-            <option value="revealed">Revealed only</option>
-            <option value="expiring">Expiring soon</option>
-            <option value="expired">Expired</option>
-          </select>
-          <select
-            data-testid="secret-sort"
-            aria-label="Sort secrets"
-            value={sortBy}
-            onChange={(event) =>
-              setSortBy(event.target.value as SecretSortOption)
-            }
-            className="h-8 rounded-lg border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus:border-ring focus:ring-1 focus:ring-ring"
-          >
-            <option value="updated-desc">Newest updated</option>
-            <option value="updated-asc">Oldest updated</option>
-            <option value="key-asc">Key A-Z</option>
-            <option value="key-desc">Key Z-A</option>
-            <option value="expires-soon">Expires soonest</option>
-          </select>
-          <div className="ml-auto">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:items-center">
+            <select
+              data-testid="secret-filter"
+              aria-label="Filter secrets"
+              value={visibilityFilter}
+              onChange={(event) =>
+                setVisibilityFilter(event.target.value as SecretVisibilityFilter)
+              }
+              className="h-10 rounded-lg border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus:border-ring focus:ring-1 focus:ring-ring"
+            >
+              <option value="all">All secrets</option>
+              <option value="hidden">Hidden only</option>
+              <option value="revealed">Revealed only</option>
+              <option value="expiring">Expiring soon</option>
+              <option value="expired">Expired</option>
+            </select>
+            <select
+              data-testid="secret-sort"
+              aria-label="Sort secrets"
+              value={sortBy}
+              onChange={(event) =>
+                setSortBy(event.target.value as SecretSortOption)
+              }
+              className="h-10 rounded-lg border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus:border-ring focus:ring-1 focus:ring-ring"
+            >
+              <option value="updated-desc">Newest updated</option>
+              <option value="updated-asc">Oldest updated</option>
+              <option value="key-asc">Key A-Z</option>
+              <option value="key-desc">Key Z-A</option>
+              <option value="expires-soon">Expires soonest</option>
+            </select>
+          </div>
+          <div className="lg:ml-auto">
             <Button
               data-testid="reveal-all-secrets"
               variant="ghost"
@@ -1123,25 +1129,25 @@ export default function ProjectSecretsPage() {
           const moreIntegrations = connectedIntegrations > 2 ? ` +${connectedIntegrations - 2}` : '';
 
           return (
-          <div className="grid grid-cols-4 gap-3 mb-4">
-            <div className="rounded-lg border border-border bg-card p-3">
-              <p className="text-[11px] font-medium text-muted-foreground">Total Secrets</p>
-              <p className="text-xl font-extrabold text-foreground mt-0.5">{totalSecrets}</p>
+          <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-lg border border-border bg-card p-4">
+              <p className="text-sm font-medium text-muted-foreground">Total Secrets</p>
+              <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">{totalSecrets}</p>
             </div>
-            <div className="rounded-lg border border-border bg-card p-3">
-              <p className="text-[11px] font-medium text-muted-foreground">Last Synced</p>
-              <p className="text-sm font-bold text-foreground mt-0.5 pt-1">{syncText}</p>
-              <p className="text-[10px] text-success mt-0.5">{secrets.length > 0 ? 'All healthy' : 'No secrets'}</p>
+            <div className="rounded-lg border border-border bg-card p-4">
+              <p className="text-sm font-medium text-muted-foreground">Last Synced</p>
+              <p className="mt-1 text-base font-semibold text-foreground">{syncText}</p>
+              <p className="mt-1 text-xs text-success">{secrets.length > 0 ? 'All healthy' : 'No secrets'}</p>
             </div>
-            <div className="rounded-lg border border-border bg-card p-3">
-              <p className="text-[11px] font-medium text-muted-foreground">Expiring Soon</p>
-              <p className="text-xl font-extrabold text-danger mt-0.5">{expiringSoon}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">{expiringSoon > 0 ? 'Rotation needed' : 'All good'}</p>
+            <div className="rounded-lg border border-border bg-card p-4">
+              <p className="text-sm font-medium text-muted-foreground">Expiring Soon</p>
+              <p className="mt-1 text-2xl font-bold tabular-nums text-danger">{expiringSoon}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{expiringSoon > 0 ? 'Rotation needed' : 'All good'}</p>
             </div>
-            <div className="rounded-lg border border-border bg-card p-3">
-              <p className="text-[11px] font-medium text-muted-foreground">Active Integrations</p>
-              <p className="text-xl font-extrabold text-foreground mt-0.5">{connectedIntegrations}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">{connectedIntegrations > 0 ? `${integrationNames}${moreIntegrations}` : 'None connected'}</p>
+            <div className="rounded-lg border border-border bg-card p-4">
+              <p className="text-sm font-medium text-muted-foreground">Active Integrations</p>
+              <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">{connectedIntegrations}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{connectedIntegrations > 0 ? `${integrationNames}${moreIntegrations}` : 'None connected'}</p>
             </div>
           </div>
           );
@@ -1151,13 +1157,13 @@ export default function ProjectSecretsPage() {
         {sortedSecrets.length === 0 ? (
           <Card className="border-dashed border-2 border-border bg-card/50">
             <CardContent className="flex flex-col items-center justify-center py-12">
-              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+              <div className="mb-4 flex size-10 items-center justify-center rounded-lg bg-muted">
                 <Key className="h-5 w-5 text-muted-foreground" />
               </div>
-              <h3 className="text-sm font-semibold text-foreground">
+              <h3 className="text-base font-semibold text-foreground">
                 {secrets.length === 0 ? 'No secrets in this environment' : 'No matching secrets'}
               </h3>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1 max-w-sm text-center text-sm text-muted-foreground">
                 {secrets.length === 0
                   ? 'Add your first secret to start managing values here.'
                   : 'Try a different search, filter, or sort combination.'}
@@ -1184,20 +1190,20 @@ export default function ProjectSecretsPage() {
             </CardContent>
           </Card>
         ) : (
-          <Card className="border-border bg-card overflow-hidden flex-1 flex flex-col min-h-0">
+          <Card className="flex min-h-0 flex-1 flex-col overflow-hidden border-border bg-card">
             {/* Table Header */}
-            <div className="grid grid-cols-[28px_3fr_2fr_1fr_1fr_1fr_80px] items-center px-4 h-9 border-b border-border bg-muted/50 overflow-hidden">
+            <div className="grid grid-cols-[32px_3fr_2fr_1fr_1fr_1fr_88px] items-center border-b border-border bg-muted/50 px-4 py-3 overflow-hidden">
               <div></div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1 cursor-pointer hover:text-foreground min-w-0">
+              <div className="min-w-0 text-xs font-semibold text-muted-foreground">
                 Key
               </div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground min-w-0">Value</div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground shrink-0">Environment</div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground shrink-0">Expires</div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1 cursor-pointer hover:text-foreground shrink-0">
+              <div className="min-w-0 text-xs font-semibold text-muted-foreground">Value</div>
+              <div className="shrink-0 text-xs font-semibold text-muted-foreground">Environment</div>
+              <div className="shrink-0 text-xs font-semibold text-muted-foreground">Expires</div>
+              <div className="shrink-0 text-xs font-semibold text-muted-foreground">
                 Updated
               </div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-right">Actions</div>
+              <div className="text-right text-xs font-semibold text-muted-foreground">Actions</div>
             </div>
 
             {/* Table Body */}
@@ -1207,7 +1213,7 @@ export default function ProjectSecretsPage() {
                   key={secret.id}
                   data-testid="secret-row"
                   data-secret-key={secret.key}
-                  className={`grid grid-cols-[28px_3fr_2fr_1fr_1fr_1fr_80px] items-center px-4 h-11 cursor-pointer transition-colors hover:bg-muted/50 overflow-hidden ${
+                  className={`grid grid-cols-[32px_3fr_2fr_1fr_1fr_1fr_88px] items-center px-4 py-3 cursor-pointer transition-colors hover:bg-muted/50 overflow-hidden ${
                     selectedSecretId === secret.id ? 'bg-gold/5 border-l-2 border-l-gold' : ''
                   }`}
                   onClick={() => handleSelectSecret(secret)}
@@ -1238,6 +1244,7 @@ export default function ProjectSecretsPage() {
                       <button
                         onClick={(e) => { e.stopPropagation(); toggleSecretVisibility(secret.id); }}
                         className="p-1 rounded hover:bg-muted"
+                        aria-label={visibleSecrets.has(secret.id) ? `Hide ${secret.key}` : `Reveal ${secret.key}`}
                       >
                         {visibleSecrets.has(secret.id) ? (
                           <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1248,6 +1255,7 @@ export default function ProjectSecretsPage() {
                       <button
                         onClick={(e) => { e.stopPropagation(); copyToClipboard(secret); }}
                         className="p-1 rounded hover:bg-muted"
+                        aria-label={`Copy ${secret.key}`}
                       >
                         {copiedSecret === secret.id ? (
                           <Check className="h-3.5 w-3.5 text-success" />
@@ -1272,21 +1280,21 @@ export default function ProjectSecretsPage() {
                       const now = new Date();
                       const daysLeft = Math.ceil((expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
                       if (daysLeft < 0) {
-                        return <span className="text-[10px] font-semibold text-danger">Expired</span>;
+                        return <span className="text-xs font-semibold tabular-nums text-danger">Expired</span>;
                       } else if (daysLeft <= 7) {
-                        return <span className="text-[10px] font-semibold text-danger">{daysLeft}d left</span>;
+                        return <span className="text-xs font-semibold tabular-nums text-danger">{daysLeft}d left</span>;
                       } else if (daysLeft <= 30) {
-                        return <span className="text-[10px] text-warning">{daysLeft}d left</span>;
+                        return <span className="text-xs tabular-nums text-warning">{daysLeft}d left</span>;
                       } else {
-                        return <span className="text-[10px] text-muted-foreground">{expDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>;
+                        return <span className="text-xs tabular-nums text-muted-foreground">{expDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>;
                       }
                     })() : (
-                      <span className="text-[10px] text-muted-foreground">Never</span>
+                      <span className="text-xs text-muted-foreground">Never</span>
                     )}
                   </div>
 
                   {/* Updated */}
-                  <div className="text-xs text-muted-foreground shrink-0">
+                  <div className="shrink-0 text-xs tabular-nums text-muted-foreground">
                     {new Date(secret.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   </div>
 
@@ -1297,6 +1305,7 @@ export default function ProjectSecretsPage() {
                         onClick={(e) => { e.stopPropagation(); handleRotateSecret(secret.id); }}
                         className="p-1.5 rounded hover:bg-muted"
                         title="Rotate secret"
+                        aria-label={`Rotate ${secret.key}`}
                       >
                         <RefreshCw className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
@@ -1305,6 +1314,7 @@ export default function ProjectSecretsPage() {
                       <button
                         onClick={(e) => { e.stopPropagation(); setConfirmDeleteSecret(secret.id); }}
                         className="p-1.5 rounded hover:bg-danger/20"
+                        aria-label={`Delete ${secret.key}`}
                       >
                         <Trash2 className="h-4 w-4 text-danger" />
                       </button>
@@ -1320,10 +1330,10 @@ export default function ProjectSecretsPage() {
                 className="flex items-center gap-2 px-4 py-2.5 border-t border-dashed border-border cursor-pointer hover:bg-muted/50 transition-colors"
                 onClick={openAddSecretModal}
               >
-                <div className="w-5 h-5 rounded border border-dashed border-border flex items-center justify-center text-muted-foreground">
+                <div className="flex size-5 items-center justify-center rounded border border-dashed border-border text-muted-foreground">
                   <Plus className="h-3 w-3" />
                 </div>
-                <span className="text-xs text-muted-foreground">Add new secret...</span>
+                <span className="text-sm text-muted-foreground">Add new secret...</span>
               </div>
             )}
           </Card>
@@ -1332,14 +1342,15 @@ export default function ProjectSecretsPage() {
 
       {/* Right Panel - Secret Detail */}
       {selectedSecretId && selectedSecret && (
-        <div className="w-[300px] border border-border bg-card flex flex-col overflow-hidden animate-slideInRight rounded-lg ml-2">
+        <div className="flex w-full flex-col overflow-hidden rounded-lg border border-border bg-card xl:ml-1 xl:w-[340px]">
           {/* Panel Header */}
-          <div className="flex items-center justify-between p-4 border-b border-border">
-            <span className="text-sm font-bold text-foreground font-mono-secret truncate">{selectedSecret.key}</span>
+          <div className="flex items-center justify-between border-b border-border p-4">
+            <span className="truncate font-mono-secret text-base font-semibold text-foreground">{selectedSecret.key}</span>
             <button
               onClick={clearSelectedSecret}
               className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
               title="Close"
+              aria-label="Close secret details"
             >
               <X className="h-4 w-4" />
             </button>
@@ -1349,7 +1360,7 @@ export default function ProjectSecretsPage() {
           <div className="flex-1 overflow-y-auto p-4">
             {/* Value Section */}
             <div className="mb-5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Value</p>
+              <p className="mb-2 text-xs font-semibold text-muted-foreground">Value</p>
               <div className="rounded-lg border border-border bg-muted/50 p-3 mb-2">
                 <p className="font-mono-secret text-sm text-foreground break-all">
                   {showValue
@@ -1375,7 +1386,7 @@ export default function ProjectSecretsPage() {
 
             {/* Metadata Section */}
             <div className="mb-5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Metadata</p>
+              <p className="mb-2 text-xs font-semibold text-muted-foreground">Metadata</p>
               <div className="space-y-0">
                 <div className="flex justify-between py-2 border-b border-border">
                   <span className="text-xs text-muted-foreground">Environment</span>
@@ -1436,7 +1447,7 @@ export default function ProjectSecretsPage() {
 
             {/* Comment Section */}
             <div className="mb-5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Comment</p>
+              <p className="mb-2 text-xs font-semibold text-muted-foreground">Comment</p>
               <div className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 leading-relaxed">
                 {(selectedSecret.metadata?.description as string) || 'No description'}
               </div>
@@ -1444,7 +1455,7 @@ export default function ProjectSecretsPage() {
 
             {/* Audit Trail */}
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Audit Trail</p>
+              <p className="mb-2 text-xs font-semibold text-muted-foreground">Audit Trail</p>
               <div className="space-y-3">
                 {auditLogs.length > 0 ? auditLogs.map((entry) => (
                   <div key={entry.id} className="flex items-start gap-2.5">
@@ -1453,7 +1464,7 @@ export default function ProjectSecretsPage() {
                       <p className="text-xs text-foreground">
                         <span className="font-semibold">{entry.user}</span> {entry.action}
                       </p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">{entry.timestamp}</p>
+                      <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">{entry.timestamp}</p>
                     </div>
                   </div>
                 )) : (
@@ -1477,6 +1488,7 @@ export default function ProjectSecretsPage() {
                 size="sm"
                 className="text-danger hover:bg-danger/10"
                 onClick={() => setConfirmDeleteSecret(selectedSecret.id)}
+                aria-label={`Delete ${selectedSecret.key}`}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -1629,7 +1641,7 @@ export default function ProjectSecretsPage() {
                   className="flex items-center justify-between py-2 px-2 rounded-lg hover:bg-muted"
                 >
                   <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full bg-${env.slug}`} />
+                    <span className={`size-2 rounded-full ${getEnvDot(env.slug)}`} />
                     <span className="text-sm text-foreground">{env.name}</span>
                     <span className="text-xs text-muted-foreground">({env.slug})</span>
                   </div>
