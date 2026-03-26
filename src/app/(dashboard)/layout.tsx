@@ -143,7 +143,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   if (loading || !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-dvh flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           <span className="text-sm text-muted-foreground">Loading...</span>
@@ -153,7 +153,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   return (
-    <div className="h-screen bg-background overflow-hidden">
+    <div className="h-dvh bg-background overflow-hidden">
       <div className="flex h-full">
         <div className="flex flex-col border-r border-border">
           <Sidebar
@@ -175,7 +175,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               unreadAlerts={globalUnreadAlerts}
             />
             <main className="flex-1 overflow-hidden">
-              <div className="h-full overflow-y-auto p-6">{children}</div>
+              <div className="h-full overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">{children}</div>
             </main>
           </HeaderActionsProvider>
         </div>

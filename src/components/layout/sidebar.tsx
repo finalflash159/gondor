@@ -158,7 +158,7 @@ function SidebarComponent({ user, collapsed = false, organizationSlug, orgRole, 
     <aside
       className={cn(
         'flex flex-col border-r border-border bg-card transition-colors duration-200 h-full',
-        collapsed ? 'w-14' : 'w-[220px]'
+        collapsed ? 'w-14' : 'w-[236px]'
       )}
     >
       {/* Top Section - Logo & Org Selector */}
@@ -166,7 +166,7 @@ function SidebarComponent({ user, collapsed = false, organizationSlug, orgRole, 
         {/* Logo & Brand */}
         <div className="flex items-center gap-3 px-4 py-5">
           <Logo width={48} height={48} />
-          <span className="text-3xl font-extrabold tracking-tight text-foreground">Gondor</span>
+          <span className="text-[1.85rem] font-extrabold text-foreground">Gondor</span>
         </div>
 
         {/* Organization Selector */}
@@ -180,14 +180,14 @@ function SidebarComponent({ user, collapsed = false, organizationSlug, orgRole, 
                   'hover:bg-muted transition-colors text-left'
                 )}
               >
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-sm font-bold text-primary">
                   {currentOrg ? getOrgInitials(currentOrg.name) : <Building2 className="h-4 w-4" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">
+                  <p className="truncate text-sm font-semibold text-foreground">
                     {currentOrg ? currentOrg.name : 'Select Org'}
                   </p>
-                  <p className="text-[10px] text-muted-foreground truncate">
+                  <p className="truncate text-xs text-muted-foreground">
                     {currentOrg ? currentOrg.slug : 'Choose an organization'}
                   </p>
                 </div>
@@ -220,12 +220,12 @@ function SidebarComponent({ user, collapsed = false, organizationSlug, orgRole, 
                               org.slug === organizationSlug && 'bg-muted'
                             )}
                           >
-                            <div className="flex h-6 w-6 items-center justify-center rounded bg-primary/10 text-[10px] font-bold text-primary">
+                            <div className="flex size-7 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">
                               {getOrgInitials(org.name)}
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-foreground truncate">{org.name}</p>
-                              <p className="text-[10px] text-muted-foreground truncate">/{org.slug}</p>
+                              <p className="truncate text-xs text-muted-foreground">/{org.slug}</p>
                             </div>
                           </Link>
                         ))
@@ -294,7 +294,7 @@ function SidebarComponent({ user, collapsed = false, organizationSlug, orgRole, 
             <div key={group.label} className="mb-4">
               {!collapsed && (
                 <div className="px-2 py-2">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <span className="text-xs font-semibold text-muted-foreground">
                     {group.label}
                   </span>
                 </div>
@@ -327,7 +327,7 @@ function SidebarComponent({ user, collapsed = false, organizationSlug, orgRole, 
                           {item.badge && (
                             <span
                               className={cn(
-                                'ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
+                                'ml-auto rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums',
                                 typeof item.badge === 'number'
                                   ? 'bg-muted text-muted-foreground'
                                   : 'bg-gold/20 text-gold'
@@ -357,7 +357,7 @@ function SidebarComponent({ user, collapsed = false, organizationSlug, orgRole, 
         {/* User Profile */}
         {user && (
           <div className={cn('flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted transition-colors', collapsed && 'justify-center')}>
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-gold/80 to-gold text-[11px] font-bold text-foreground">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-full border border-gold/20 bg-gold/10 text-xs font-bold text-gold">
               {getInitials(user.name || user.email)}
             </div>
             {!collapsed && (
@@ -365,7 +365,7 @@ function SidebarComponent({ user, collapsed = false, organizationSlug, orgRole, 
                 <p className="truncate text-sm font-medium text-foreground">
                   {user.name || user.email.split('@')[0]}
                 </p>
-                <p className="truncate text-[10px] text-muted-foreground capitalize">
+                <p className="truncate text-xs text-muted-foreground capitalize">
                   {orgRole || 'Member'}
                 </p>
               </div>
