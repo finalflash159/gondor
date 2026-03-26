@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { DEFAULT_PERMISSIONS } from '@/backend/middleware/permissions';
+import { hasPermission } from '@/backend/middleware/permissions';
 import type { CreateProjectInput, UpdateProjectInput } from '@/backend/schemas';
 
 /**
@@ -147,19 +148,19 @@ export const projectService = {
             {
               name: 'Admin',
               slug: 'admin',
-              permissions: JSON.stringify(DEFAULT_PERMISSIONS.admin),
+              permissions: DEFAULT_PERMISSIONS.admin,
               isDefault: false,
             },
             {
               name: 'Developer',
               slug: 'developer',
-              permissions: JSON.stringify(DEFAULT_PERMISSIONS.developer),
+              permissions: DEFAULT_PERMISSIONS.developer,
               isDefault: false,
             },
             {
               name: 'Viewer',
               slug: 'viewer',
-              permissions: JSON.stringify(DEFAULT_PERMISSIONS.viewer),
+              permissions: DEFAULT_PERMISSIONS.viewer,
               isDefault: true,
             },
           ],
@@ -218,11 +219,14 @@ export const projectService = {
       throw new Error('Project not found');
     }
 
-    // Check ownership - owner can always delete
-    const isOwner = project.ownerId === userId;
+    const canDelete =
+      project.ownerId === userId ||
+      (await hasPermission(userId, id, 'project:delete'));
 
-    if (!isOwner) {
-      throw new Error('Only owner can delete project');
+    if (!canDelete) {
+      throw new Error(
+        'Only owner or users with project:delete permission can delete project'
+      );
     }
 
     await db.project.delete({

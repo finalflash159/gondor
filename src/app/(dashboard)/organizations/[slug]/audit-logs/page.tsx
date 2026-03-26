@@ -35,7 +35,7 @@ export default function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
-  const [hasAccess, setHasAccess] = useState(false);
+  const [userOrgRole, setUserOrgRole] = useState<string | null>(null);
 
   const fetchLogs = useCallback(async () => {
     setLoading(true);
@@ -45,37 +45,30 @@ export default function AuditLogsPage() {
         fetch('/api/auth/session'),
       ]);
 
-      let currentUserId: string | null = null;
       if (orgRes.ok && sessionRes.ok) {
         const orgJson = await orgRes.json();
         const orgData = orgJson?.data ?? orgJson;
         const sessionJson = await sessionRes.json();
-        currentUserId = sessionJson?.user?.id ?? null;
+        const currentUserId = sessionJson?.user?.id ?? null;
         const myMembership = orgData?.members?.find(
           (m: { userId: string }) => m.userId === currentUserId
         );
         const isAdmin = myMembership?.role === 'owner' || myMembership?.role === 'admin';
+        setUserOrgRole(myMembership?.role ?? null);
 
-        // Member chỉ thấy logs từ projects họ có quyền
-        // Admin/owner thấy tất cả projects
-        const allProjects: ProjectInfo[] = orgData?.projects ?? [];
-        const accessibleProjects = isAdmin
-          ? allProjects
-          : allProjects.filter(
-              (p) => p.ownerId === currentUserId || (p.members ?? []).some((m) => m.userId === currentUserId)
-            );
-
-        if (accessibleProjects.length === 0) {
-          setHasAccess(false);
+        if (!isAdmin) {
           setLogs([]);
-          setLoading(false);
           return;
         }
-        setHasAccess(true);
 
-        // Fetch audit logs for accessible projects
+        const allProjects: ProjectInfo[] = orgData?.projects ?? [];
+        if (allProjects.length === 0) {
+          setLogs([]);
+          return;
+        }
+
         const allLogs: AuditLog[] = [];
-        for (const project of accessibleProjects) {
+        for (const project of allProjects) {
           const logsRes = await fetch(`/api/projects/${project.id}/audit-logs`);
           if (logsRes.ok) {
             const projectLogs = await logsRes.json();
@@ -126,15 +119,15 @@ export default function AuditLogsPage() {
     );
   }
 
-  if (!hasAccess) {
+  if (!userOrgRole || userOrgRole === 'member') {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
         <div className="h-12 w-12 rounded-full bg-danger/10 flex items-center justify-center mb-4">
           <FileText className="h-6 w-6 text-danger" />
         </div>
-        <h2 className="text-lg font-semibold text-foreground mb-1">Chưa có quyền truy cập</h2>
+        <h2 className="text-lg font-semibold text-foreground mb-1">Access Restricted</h2>
         <p className="text-sm text-muted-foreground max-w-sm">
-          Bạn chưa được thêm vào project nào. Liên hệ admin để được cấp quyền xem audit logs.
+          You need admin or owner role to view audit logs.
         </p>
       </div>
     );

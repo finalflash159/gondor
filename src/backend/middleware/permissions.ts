@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { normalizePermissionList } from '@/lib/permissions';
 
 export type Permission =
   | 'secret:read'
@@ -17,6 +18,7 @@ export const DEFAULT_PERMISSIONS: Record<string, Permission[]> = {
     'folder:manage',
     'member:manage',
     'settings:manage',
+    'project:delete',
   ],
   developer: [
     'secret:read',
@@ -62,7 +64,7 @@ export async function hasPermission(
     return false;
   }
 
-  const permissions = role.permissions as Permission[];
+  const permissions = normalizePermissionList<Permission>(role.permissions);
   return permissions.includes(permission);
 }
 
@@ -97,7 +99,7 @@ export async function getUserPermissions(
     return [];
   }
 
-  return role.permissions as Permission[];
+  return normalizePermissionList<Permission>(role.permissions);
 }
 
 /**

@@ -59,17 +59,11 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const { user, isOwner } = await requireProjectAccess(id);
+    const { user } = await requireProjectAccess(id, 'project:delete');
 
-    // Check if owner can delete
     const project = await projectService.getProjectById(id);
     if (!project) {
       return notFound('Project not found');
-    }
-
-    // Only owner or users with project:delete permission can delete
-    if (!isOwner) {
-      return error('Only owner or users with project:delete permission can delete project', 403);
     }
 
     await projectService.delete(id, user.id);

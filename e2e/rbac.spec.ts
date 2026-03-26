@@ -1,8 +1,10 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, request as playwrightRequest } from '@playwright/test';
 import {
   E2E_ADMIN_STORAGE_PATH,
+  E2E_BASE_URL,
   E2E_GLOBAL_ALERT_TITLE,
   E2E_MEMBER_STORAGE_PATH,
+  E2E_MEMBER_EMAIL,
   E2E_ORG_ALERT_TITLE,
   E2E_PROJECT_ALERT_COUNT,
   E2E_PROJECT_ALERT_TITLE_PREFIX,
@@ -266,6 +268,74 @@ test.describe('E2E — Admin flows', () => {
     await expect(
       page.getByRole('heading', { name: /new secret/i })
     ).toBeVisible({ timeout: 5000 });
+  });
+
+  test('A custom project:delete role can delete a project for a non-owner member', async ({ page }) => {
+    const { organizationId } = readRuntimeFixture();
+    const suffix = Date.now().toString(36);
+    const projectName = `Delete Permission ${suffix}`;
+    const projectSlug = `delete-permission-${suffix}`;
+    const roleSlug = `project-deleter-${suffix}`;
+    let projectId: string | null = null;
+
+    const memberApi = await playwrightRequest.newContext({
+      baseURL: E2E_BASE_URL,
+      storageState: E2E_MEMBER_STORAGE_PATH,
+    });
+
+    try {
+      const createProjectResponse = await page.request.post('/api/projects', {
+        data: {
+          name: projectName,
+          slug: projectSlug,
+          orgId: organizationId,
+        },
+      });
+      expect(createProjectResponse.status()).toBe(201);
+      const createProjectJson = await createProjectResponse.json();
+      const project = (createProjectJson.data ?? createProjectJson) as { id: string };
+      projectId = project.id;
+
+      const createRoleResponse = await page.request.post(`/api/projects/${projectId}/roles`, {
+        data: {
+          name: 'Project Deleter',
+          slug: roleSlug,
+          permissions: ['secret:read', 'project:delete'],
+          isDefault: false,
+        },
+      });
+      expect(createRoleResponse.status()).toBe(201);
+      const createRoleJson = await createRoleResponse.json();
+      const role = (createRoleJson.data ?? createRoleJson) as { id: string };
+
+      const addMemberResponse = await page.request.post(`/api/projects/${projectId}/members`, {
+        data: {
+          email: E2E_MEMBER_EMAIL,
+          roleId: role.id,
+        },
+      });
+      expect(addMemberResponse.status()).toBe(201);
+
+      const deleteProjectResponse = await memberApi.delete(`/api/projects/${projectId}`);
+      expect(deleteProjectResponse.ok()).toBeTruthy();
+
+      const listProjectsResponse = await page.request.get(
+        `/api/projects?orgId=${organizationId}`
+      );
+      expect(listProjectsResponse.ok()).toBeTruthy();
+      const listProjectsJson = await listProjectsResponse.json();
+      const projects = (listProjectsJson.data ?? listProjectsJson) as Array<{ id: string }>;
+      expect(projects.some((existingProject) => existingProject.id === projectId)).toBeFalsy();
+
+      projectId = null;
+    } finally {
+      await memberApi.dispose();
+
+      if (projectId) {
+        const cleanupResponse = await page.request.delete(`/api/projects/${projectId}`);
+        expect(cleanupResponse.ok()).toBeTruthy();
+      }
+    }
   });
 
   test('Admin sidebar Secrets link preserves the current project context', async ({ page }) => {
@@ -644,6 +714,20 @@ test.describe('E2E — Member flows', () => {
     await expect(
       page.getByRole('link', { name: /audit logs/i })
     ).not.toBeVisible({ timeout: 3000 });
+  });
+
+  test('Member is BLOCKED from /audit-logs page', async ({ page }) => {
+    await page.goto(`/organizations/${ORG_SLUG}/audit-logs`);
+    await page.waitForLoadState('load');
+    await page.waitForTimeout(1500);
+    await expect(page.getByText(/access restricted/i)).toBeVisible({ timeout: 5000 });
+  });
+
+  test('Member is BLOCKED from /billing page', async ({ page }) => {
+    await page.goto(`/organizations/${ORG_SLUG}/billing`);
+    await page.waitForLoadState('load');
+    await page.waitForTimeout(1500);
+    await expect(page.getByText(/access restricted/i)).toBeVisible({ timeout: 5000 });
   });
 
   test('Member can see the project list but not create one', async ({ page }) => {

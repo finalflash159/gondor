@@ -13,6 +13,7 @@ import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { Badge } from '@/components/ui/badge';
 import { Combobox } from '@/components/ui/combobox';
 import { useToast } from '@/components/ui/toast';
+import { normalizePermissionList } from '@/lib/permissions';
 import {
   Eye,
   EyeOff,
@@ -723,7 +724,7 @@ export default function ProjectSecretsPage() {
   // Compute user permissions from project membership
   const userPermissions = useMemo(() => {
     const member = projectMembers.find(m => m.userId === currentUserId);
-    return (member?.role?.permissions as string[] | undefined) ?? [];
+    return normalizePermissionList<string>(member?.role?.permissions);
   }, [projectMembers, currentUserId]);
 
   const isProjectOwner = projectOwnerId === currentUserId;
@@ -731,6 +732,8 @@ export default function ProjectSecretsPage() {
   const canDelete = userPermissions.includes('secret:delete');
   const canManageMembers = userPermissions.includes('member:manage');
   const canManageSettings = userPermissions.includes('settings:manage');
+  const canDeleteProject =
+    isProjectOwner || userPermissions.includes('project:delete');
   const canRotate = canWrite; // rotating regenerates value = write operation
 
   const openAddSecretModal = () => {
@@ -1659,8 +1662,8 @@ export default function ProjectSecretsPage() {
             </div>
           )}
 
-          {/* Danger Zone — only owner sees it */}
-          {isProjectOwner && (
+          {/* Danger Zone */}
+          {canDeleteProject && (
             <div className="border-t border-border pt-4 mt-4">
               <h3 className="text-sm font-semibold text-danger mb-3 flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4" />
