@@ -60,16 +60,18 @@ export const environmentService = {
   /**
    * Delete an environment
    */
-  async delete(id: string, userId: string) {
-    const environment = await db.projectEnvironment.findUnique({
-      where: { id },
+  async delete(projectId: string, id: string, userId: string) {
+    const environment = await db.projectEnvironment.findFirst({
+      where: {
+        id,
+        projectId,
+      },
     });
 
     if (!environment) {
       throw new Error('Environment not found');
     }
 
-    const projectId = environment.projectId;
     const name = environment.name;
 
     // Delete all secrets in this environment first
