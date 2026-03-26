@@ -329,6 +329,48 @@ test.describe('E2E — Admin flows', () => {
       membersAfterDelete.some((member) => member.user.email === E2E_PROJECT_TEMP_EMAIL)
     ).toBeFalsy();
   });
+
+  test('Admin can create and delete environments through nested environment routes', async ({ page }) => {
+    const projectId = getProjectId();
+    const slug = `env-${Date.now().toString().slice(-6)}`;
+    const name = `E2E Env ${slug}`;
+
+    await page.goto(`/organizations/${ORG_SLUG}/projects/${projectId}`);
+    await page.waitForLoadState('load');
+
+    const createResponse = await page.request.post(
+      `/api/projects/${projectId}/environments`,
+      {
+        data: { name, slug },
+      }
+    );
+    expect(createResponse.status()).toBe(201);
+    const createJson = await createResponse.json();
+    const createdEnvironment = (createJson.data ?? createJson) as {
+      id: string;
+      slug: string;
+    };
+    expect(createdEnvironment.slug).toBe(slug);
+
+    const deleteResponse = await page.request.delete(
+      `/api/projects/${projectId}/environments/${createdEnvironment.id}`
+    );
+    expect(deleteResponse.ok()).toBeTruthy();
+
+    const environmentsResponse = await page.request.get(
+      `/api/projects/${projectId}/environments`
+    );
+    expect(environmentsResponse.ok()).toBeTruthy();
+    const environmentsJson = await environmentsResponse.json();
+    const environments = (environmentsJson.data ?? environmentsJson) as Array<{
+      id: string;
+      slug: string;
+    }>;
+
+    expect(
+      environments.some((environment) => environment.id === createdEnvironment.id)
+    ).toBeFalsy();
+  });
 });
 
 test.describe('E2E — Member flows', () => {
